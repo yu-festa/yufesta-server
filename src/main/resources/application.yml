@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: yufesta
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/yufesta?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
