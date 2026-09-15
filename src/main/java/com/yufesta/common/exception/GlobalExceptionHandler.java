@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 컨트롤러 예외를 공통 JSON 오류 응답으로 변환합니다.
@@ -33,6 +34,14 @@ public class GlobalExceptionHandler {
                 .map(this::toValidationError)
                 .toList();
         return response(ErrorCode.INVALID_INPUT_VALUE, errors);
+    }
+
+    // 존재하지 않는 API 또는 정적 리소스 요청은 404로 반환합니다.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(
+            NoResourceFoundException exception
+    ) {
+        return response(ErrorCode.RESOURCE_NOT_FOUND);
     }
 
     @ExceptionHandler(Exception.class)

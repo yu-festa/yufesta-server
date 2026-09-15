@@ -8,8 +8,42 @@ spring:
     hibernate:
       ddl-auto: update
 
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET:}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-name: Kakao
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+
 springdoc:
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
+
+app:
+  auth:
+    jwt:
+      secret: ${JWT_SECRET}
+      access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:PT2H}
+    cookie:
+      name: access_token
+      secure: false
+      domain: ${AUTH_COOKIE_DOMAIN:}
