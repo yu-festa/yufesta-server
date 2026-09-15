@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
- * 컨트롤러 예외를 공통 JSON 오류 응답으로 변환합니다.
+ * 컨트롤러 예외를 공통 JSON 오류 응답으로 변환
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -36,7 +36,7 @@ public class GlobalExceptionHandler {
         return response(ErrorCode.INVALID_INPUT_VALUE, errors);
     }
 
-    // 존재하지 않는 API 또는 정적 리소스 요청은 404로 반환합니다.
+    // 존재하지 않는 API 또는 정적 리소스 요청은 404로 반환
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResourceFoundException(
             NoResourceFoundException exception

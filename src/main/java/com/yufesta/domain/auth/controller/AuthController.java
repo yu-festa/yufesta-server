@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 인증 쿠키를 정리하는 API입니다.
+ * 인증 쿠키를 정리하는 API
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -24,19 +24,18 @@ public class AuthController {
     }
 
     /**
-     * 브라우저가 쓰기 요청 전에 CSRF 쿠키를 발급받는 엔드포인트입니다.
+     * 브라우저가 쓰기 요청 전에 CSRF 쿠키를 발급받는 엔드포인트
      */
     @GetMapping("/csrf")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    // 쓰기 요청에 사용할 XSRF-TOKEN 쿠키를 발급합니다.
+    // 쓰기 요청에 사용할 XSRF-TOKEN 쿠키를 발급
     public void issueCsrfToken(CsrfToken csrfToken) {
-        // 실제 토큰에 접근해야 XSRF-TOKEN 쿠키가 생성됩니다.
         csrfToken.getToken();
     }
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    // JWT 쿠키를 삭제해 현재 브라우저를 로그아웃합니다.
+    // JWT 쿠키를 삭제해 현재 브라우저를 로그아웃
     public void logout(HttpServletResponse response) {
         authCookieService.deleteAccessToken(response);
     }

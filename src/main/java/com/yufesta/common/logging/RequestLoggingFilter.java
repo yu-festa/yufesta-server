@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * HTTP 요청의 메서드, URI, 응답 상태와 처리 시간만 공통 로그로 기록
+ * HTTP 요청 처리 결과를 공통 로그로 남기는 필터
  */
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {
@@ -26,7 +26,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     );
 
     @Override
-    // health check와 API 문서 요청은 운영 로그에서 제외
+    // health check와 Swagger 요청은 로그에서 제외
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
         return uri.equals("/actuator/health")
@@ -35,7 +35,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     @Override
-    // 요청 완료 후 메서드, URI, 상태 코드, 처리 시간만 기록
+    // 요청 처리 후 상태 코드와 처리 시간을 기록
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

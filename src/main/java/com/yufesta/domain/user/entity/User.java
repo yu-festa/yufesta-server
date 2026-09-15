@@ -60,7 +60,7 @@ public class User extends BaseTimeEntity {
         recordLogin();
     }
 
-    // 마지막 로그인 시각을 현재 시각으로 갱신합니다.
+    // 마지막 로그인 시각을 현재 시각으로 갱신
     public void recordLogin() {
         this.lastLoginAt = LocalDateTime.now();
     }

@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    // 요청 쿠키의 JWT로 현재 사용자를 인증합니다.
+    // 요청 쿠키의 JWT로 현재 사용자를 인증
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    // 요청 쿠키에서 access_token 값을 찾습니다.
+    // 요청 쿠키에서 access_token 값을 찾음
     private Optional<String> extractToken(HttpServletRequest request) {
         if (request.getCookies() == null) {
             return Optional.empty();
@@ -62,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .findFirst();
     }
 
-    // JWT의 uid로 실제 사용자를 조회합니다.
+    // JWT의 uid로 실제 사용자를 조회
     private Optional<User> findUser(String token) {
         try {
             return userRepository.findById(jwtTokenProvider.getUserId(token));
@@ -71,7 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    // 조회한 사용자를 Spring Security 로그인 정보로 등록합니다.
+    // 조회한 사용자를 Spring Security 로그인 정보로 등록
     private void authenticate(HttpServletRequest request, User user) {
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
             return;
