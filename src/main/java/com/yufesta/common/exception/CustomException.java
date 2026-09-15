@@ -4,7 +4,7 @@ import com.yufesta.common.exception.error.ErrorCode;
 import java.util.Objects;
 
 /**
- * 도메인 규칙 위반을 공통 오류 코드로 전달하는 예외입니다.
+ * 도메인 규칙 위반을 공통 오류 코드로 전달하는 예외
  */
 public class CustomException extends RuntimeException {
 

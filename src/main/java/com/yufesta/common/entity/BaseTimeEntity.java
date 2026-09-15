@@ -10,7 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
- * 엔티티의 생성·수정 시각을 공통으로 관리합니다.
+ * 엔티티의 생성·수정 시각을 공통으로 관리
  */
 @Getter
 @MappedSuperclass

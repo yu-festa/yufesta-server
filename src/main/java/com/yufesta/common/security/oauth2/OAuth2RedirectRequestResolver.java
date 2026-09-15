@@ -8,7 +8,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 
 /**
- * OAuth 시작 전에 안전한 원래 이동 경로를 세션에 보관합니다.
+ * OAuth 시작 전에 안전한 원래 이동 경로를 세션에 보관
  * state 자체의 검증은 Spring Security의 세션 기반 저장소가 담당
  */
 public class OAuth2RedirectRequestResolver implements OAuth2AuthorizationRequestResolver {

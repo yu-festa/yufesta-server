@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 소셜 계정으로 사용자를 조회하거나 최초 로그인 사용자를 생성합니다.
+ * 소셜 계정으로 사용자를 조회하거나 최초 로그인 사용자를 생성
  */
 @Service
 public class UserLoginService {
@@ -23,7 +23,7 @@ public class UserLoginService {
     }
 
     @Transactional
-    // 기존 사용자는 로그인 시각을 갱신하고, 신규 사용자는 생성합니다.
+    // 기존 사용자는 로그인 시각을 갱신하고, 신규 사용자는 생성
     public User login(OAuthProvider provider, String providerUserId) {
         return userRepository.findByProviderAndProviderUserId(provider, providerUserId)
                 .map(user -> {
@@ -37,7 +37,7 @@ public class UserLoginService {
                 )));
     }
 
-    // 허용 목록에 있는 신규 사용자에게 STAFF 역할을 부여합니다.
+    // 허용 목록에 있는 신규 사용자에게 STAFF 역할 부여
     private UserRole resolveRole(OAuthProvider provider, String providerUserId) {
         return adminAllowlistService.contains(provider, providerUserId)
                 ? UserRole.STAFF

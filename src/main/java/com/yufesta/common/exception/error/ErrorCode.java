@@ -3,7 +3,7 @@ package com.yufesta.common.exception.error;
 import org.springframework.http.HttpStatus;
 
 /**
- * 클라이언트에 반환할 HTTP 상태, 오류 코드, 안내 문구를 정의합니다.
+ * 클라이언트에 반환할 HTTP 상태, 오류 코드, 안내 문구를 정의
  */
 public enum ErrorCode {
 
