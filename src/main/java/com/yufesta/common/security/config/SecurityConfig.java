@@ -11,6 +11,7 @@ import com.yufesta.common.security.oauth2.OAuth2RedirectRequestResolver;
 import com.yufesta.domain.user.repository.UserRepository;
 import com.yufesta.domain.user.service.UserLoginService;
 import jakarta.servlet.DispatcherType;
+import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,8 +40,8 @@ public class SecurityConfig {
 
     // JWT 발급과 검증을 담당하는 객체를 등록
     @Bean
-    public JwtTokenProvider jwtTokenProvider(AuthProperties authProperties) {
-        return new JwtTokenProvider(authProperties.jwt());
+    public JwtTokenProvider jwtTokenProvider(AuthProperties authProperties, Clock clock) {
+        return new JwtTokenProvider(authProperties.jwt(), clock);
     }
 
     // JWT를 쿠키에 담거나 삭제하는 객체를 등록

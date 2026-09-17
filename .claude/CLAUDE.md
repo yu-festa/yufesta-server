@@ -419,7 +419,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
-7. Clock 빈·Auditing DateTimeProvider·컨테이너 타임존 없음(5장). `User.recordLogin()`이 `LocalDateTime.now()` 직접 호출
 8. Flyway 미도입, dev가 `ddl-auto: update` — 5장대로 전환, `V1__init.sql` 작성
 9. Redis 없음(SSE 팬아웃·속도 제한·스케줄 락) — compose에 `redis:7` 추가, `RedisConfig`
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음

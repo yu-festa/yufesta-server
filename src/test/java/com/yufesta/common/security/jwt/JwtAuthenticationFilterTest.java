@@ -10,6 +10,7 @@ import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
 import com.yufesta.domain.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void 유효한_쿠키면_userId를_principal로_인증한다() throws Exception {
-        User user = new User(OAuthProvider.KAKAO, "12345", UserRole.STAFF);
+        User user = User.builder().provider(OAuthProvider.KAKAO).providerUserId("12345").role(UserRole.STAFF).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build();
         ReflectionTestUtils.setField(user, "id", 7L);
         when(jwtTokenProvider.getUserId("valid")).thenReturn(7L);
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));

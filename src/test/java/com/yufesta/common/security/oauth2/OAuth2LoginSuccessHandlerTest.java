@@ -10,6 +10,7 @@ import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
 import com.yufesta.domain.user.service.UserLoginService;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +52,7 @@ class OAuth2LoginSuccessHandlerTest {
 
     @Test
     void 로그인_처리_후_쿠키를_발급하고_프론트의_원래_화면으로_보낸다() throws Exception {
-        User user = new User(OAuthProvider.KAKAO, "12345", UserRole.USER);
+        User user = User.builder().provider(OAuthProvider.KAKAO).providerUserId("12345").role(UserRole.USER).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build();
         ReflectionTestUtils.setField(user, "id", 7L);
         when(userLoginService.login(OAuthProvider.KAKAO, "12345")).thenReturn(user);
         when(jwtTokenProvider.createAccessToken(7L)).thenReturn("jwt");
@@ -68,7 +69,7 @@ class OAuth2LoginSuccessHandlerTest {
 
     @Test
     void 저장된_경로가_없으면_프론트_루트로_보낸다() throws Exception {
-        User user = new User(OAuthProvider.KAKAO, "12345", UserRole.USER);
+        User user = User.builder().provider(OAuthProvider.KAKAO).providerUserId("12345").role(UserRole.USER).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build();
         ReflectionTestUtils.setField(user, "id", 7L);
         when(userLoginService.login(OAuthProvider.KAKAO, "12345")).thenReturn(user);
         when(jwtTokenProvider.createAccessToken(7L)).thenReturn("jwt");

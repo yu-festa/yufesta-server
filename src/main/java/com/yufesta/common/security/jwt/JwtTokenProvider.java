@@ -2,6 +2,7 @@ package com.yufesta.common.security.jwt;
 
 import com.yufesta.common.security.config.AuthProperties;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -12,6 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -29,8 +31,9 @@ public class JwtTokenProvider {
     private final JwtEncoder jwtEncoder;
     private final JwtDecoder jwtDecoder;
     private final AuthProperties.Jwt properties;
+    private final Clock clock;
 
-    public JwtTokenProvider(AuthProperties.Jwt properties) {
+    public JwtTokenProvider(AuthProperties.Jwt properties, Clock clock) {
         Assert.hasText(properties.secret(), "JWT_SECRET must not be empty");
         Assert.isTrue(
                 properties.secret().getBytes(StandardCharsets.UTF_8).length >= 32,
@@ -42,15 +45,25 @@ public class JwtTokenProvider {
                 "HmacSHA256"
         );
         this.jwtEncoder = new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(secretKey));
-        this.jwtDecoder = NimbusJwtDecoder.withSecretKey(secretKey)
+        this.jwtDecoder = buildDecoder(secretKey, clock);
+        this.properties = properties;
+        this.clock = clock;
+    }
+
+    // 만료(exp) 판정도 서버 Clock을 따르게 한다. 기본 검증기는 시스템 시계를 쓰므로 교체
+    private static JwtDecoder buildDecoder(SecretKey secretKey, Clock clock) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        this.properties = properties;
+        JwtTimestampValidator timestampValidator = new JwtTimestampValidator();
+        timestampValidator.setClock(clock);
+        decoder.setJwtValidator(timestampValidator);
+        return decoder;
     }
 
     // 사용자 ID를 담은 JWT 발급
     public String createAccessToken(Long userId) {
-        Instant issuedAt = Instant.now();
+        Instant issuedAt = clock.instant();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plus(properties.accessTokenValidity()))

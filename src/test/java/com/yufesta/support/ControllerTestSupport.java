@@ -1,5 +1,6 @@
 package com.yufesta.support;
 
+import com.yufesta.common.config.ClockConfig;
 import com.yufesta.common.config.CorsConfig;
 import com.yufesta.common.security.config.SecurityConfig;
 import com.yufesta.common.security.oauth2.OAuth2ProviderUserIdExtractor;
@@ -17,7 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * 보안 설정이 요구하는 협력 빈은 mock으로 채운다. 컨트롤러 테스트는 이 클래스를 상속한다
  */
 @ActiveProfiles("test")
-@Import({SecurityConfig.class, CorsConfig.class})
+@Import({SecurityConfig.class, CorsConfig.class, ClockConfig.class})
 @MockitoBean(types = {
         ClientRegistrationRepository.class,
         UserLoginService.class,
