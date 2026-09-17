@@ -7,7 +7,7 @@
 ## 0. 작업 순서
 
 1. 기능을 만들기 전에 `docs/srs.md`에서 해당 FR 번호를 찾아 읽는다.
-2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 Flyway 마이그레이션과 `docs/erd.sql`·`docs/erd.md`를 함께 고친다.
+2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 `docs/erd.sql`·`docs/erd.md`를 함께 고친다(Flyway 도입 후에는 마이그레이션도). 새 테이블의 초기 데이터는 `db/dev/data.sql`에 추가한다.
 3. 새 코드는 `common`, `domain/user`, `domain/auth`의 기존 스타일을 따른다. 충돌 시 이 문서 > 기존 코드.
 4. 변경 후 `./gradlew test` 통과. 컴파일 경고를 새로 만들지 않는다.
 5. 모호하면 구현하지 말고 질문한다. 추측으로 요구사항을 확장하지 않는다.
@@ -50,6 +50,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
+- dev 초기 데이터: 기동 시 `db/dev/data.sql`이 `app_settings` 초기값을 넣는다(있는 행은 건너뜀). `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
 
@@ -235,7 +236,9 @@ public record NoticeResponse(Long id, String title, String body, boolean isBanne
 
 ## 5. 데이터·트랜잭션·시간
 
-**스키마 관리 (Flyway, 도입 예정)**
+**스키마 관리 (Flyway는 인스타팅 완료 후·인프라 작업 전에 도입)**
+- 도입 전까지: dev는 `ddl-auto: update`, prod는 `validate`. dev 초기 데이터는 `src/main/resources/db/dev/data.sql`(`INSERT IGNORE`, `spring.sql.init`이 dev 프로필에서만 실행). 엔티티가 ERD에서 벗어나면 `docs/erd.sql`을 같은 커밋에서 고친다.
+- 도입 시 아래를 적용한다.
 - `spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql` 추가(둘 다 Boot BOM 관리). `src/main/resources/db/migration/V1__init.sql`은 `docs/erd.sql`에서 만든다.
 - dev·prod 모두 `spring.jpa.hibernate.ddl-auto: validate`. `update`·`create`는 금지(테스트 프로필의 H2 `create-drop`만 예외, test 프로필은 `spring.flyway.enabled: false`).
 - 스키마 변경은 새 `V{n}__{설명}.sql`만 추가. 적용된 마이그레이션 파일은 수정하지 않는다.
@@ -419,7 +422,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
-8. Flyway 미도입, dev가 `ddl-auto: update` — 5장대로 전환, `V1__init.sql` 작성
+8. Flyway 미도입 — 인스타팅 완료 후, 인프라 작업 전에 5장대로 도입(`V1__init.sql`은 그 시점의 `docs/erd.sql`에서 생성)
 9. Redis 없음(SSE 팬아웃·속도 제한·스케줄 락) — compose에 `redis:7` 추가, `RedisConfig`
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
 11. `AppSettingReader`(타입 getter·캐시·SettingKey enum) 없음 — match 가중치 조회에 필요하므로 먼저
