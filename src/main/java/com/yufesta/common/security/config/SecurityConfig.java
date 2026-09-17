@@ -4,6 +4,7 @@ import com.yufesta.common.security.handler.SecurityErrorResponseHandler;
 import com.yufesta.common.security.jwt.AuthCookieService;
 import com.yufesta.common.security.jwt.JwtAuthenticationFilter;
 import com.yufesta.common.security.jwt.JwtTokenProvider;
+import com.yufesta.common.security.oauth2.OAuth2LoginFailureHandler;
 import com.yufesta.common.security.oauth2.OAuth2LoginSuccessHandler;
 import com.yufesta.common.security.oauth2.OAuth2ProviderUserIdExtractor;
 import com.yufesta.common.security.oauth2.OAuth2RedirectRequestResolver;
@@ -67,8 +68,10 @@ public class SecurityConfig {
                 userLoginService,
                 providerUserIdExtractor,
                 jwtTokenProvider,
-                authCookieService
+                authCookieService,
+                authProperties.frontendUrl()
         );
+        OAuth2LoginFailureHandler failureHandler = new OAuth2LoginFailureHandler(authProperties.frontendUrl());
         SecurityErrorResponseHandler errorResponseHandler = new SecurityErrorResponseHandler(objectMapper);
 
         return http
@@ -113,6 +116,7 @@ public class SecurityConfig {
                                 .authorizationRequestResolver(authorizationRequestResolver)
                         )
                         .successHandler(successHandler)
+                        .failureHandler(failureHandler)
                 )
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, userRepository, authProperties.cookie().name()),
