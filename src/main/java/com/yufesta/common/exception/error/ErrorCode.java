@@ -24,7 +24,11 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "FORBIDDEN", "접근 권한이 없습니다."),
 
     // 회원
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "회원을 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "회원을 찾을 수 없습니다."),
+
+    // 설정 (운영 설정 오류라 사용자 잘못이 아니므로 500)
+    APP_SETTING_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_NOT_FOUND", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
+    APP_SETTING_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_INVALID", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status;
     private final String code;
