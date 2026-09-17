@@ -17,6 +17,7 @@ public enum ErrorCode {
     INVALID_PARAMETER_TYPE(HttpStatus.BAD_REQUEST, "INVALID_PARAMETER_TYPE", "요청값 형식이 올바르지 않습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "지원하지 않는 HTTP 메서드입니다."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."),
+    PHOTO_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "PHOTO_TOO_LARGE", "파일 크기가 너무 큽니다."),
 
     // 인증 및 인가 오류
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증이 필요합니다."),

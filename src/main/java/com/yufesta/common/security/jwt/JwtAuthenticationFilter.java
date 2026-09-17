@@ -10,8 +10,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -19,6 +22,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * HttpOnly 쿠키의 JWT를 읽어 현재 요청의 인증 정보를 설정
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
@@ -60,13 +65,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .findFirst();
     }
 
-    // JWT의 uid로 실제 사용자를 조회
+    // 토큰이 위조·만료됐으면 익명으로 계속 진행. DB 예외는 잡지 않고 전파해 500으로 드러낸다
     private Optional<User> findUser(String token) {
+        Long userId;
         try {
-            return userRepository.findById(jwtTokenProvider.getUserId(token));
-        } catch (RuntimeException exception) {
+            userId = jwtTokenProvider.getUserId(token);
+        } catch (JwtException exception) {
+            log.debug("유효하지 않은 access_token 쿠키: {}", exception.getMessage());
             return Optional.empty();
         }
+        return userRepository.findById(userId);
     }
 
     // 조회한 사용자를 Spring Security 로그인 정보로 등록

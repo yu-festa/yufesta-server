@@ -280,7 +280,7 @@ public class ClockConfig {
 - 메시지는 한국어, 사용자에게 보여줄 문장. 스택·SQL·내부 식별자를 메시지에 넣지 않는다. 필터에 걸린 내용은 사유를 알려주지 않고 "등록할 수 없는 내용이에요"(FR-CH-03).
 - 로그: 5xx만 `error`+스택. 4xx는 `warn` 없이 `info` 이하. 토큰·쿠키·인스타 ID·providerUserId는 어떤 레벨에도 남기지 않는다.
 - 인증 실패 401·인가 실패 403은 SecurityConfig의 `exceptionHandling`에서 `ErrorResponse` JSON으로 낸다. 로그인 페이지 리다이렉트 금지(API 서버다).
-- `GlobalExceptionHandler`에 다음 핸들러를 채운다(ErrorCode는 이미 있음): `HttpMessageNotReadableException`→INVALID_REQUEST_BODY, `MissingServletRequestParameterException`→MISSING_REQUEST_PARAMETER, `MethodArgumentTypeMismatchException`→INVALID_PARAMETER_TYPE, `HttpRequestMethodNotSupportedException`→METHOD_NOT_ALLOWED, `ConstraintViolationException`→INVALID_INPUT_VALUE, `MaxUploadSizeExceededException`→PHOTO_TOO_LARGE.
+- `GlobalExceptionHandler` 매핑: `HttpMessageNotReadableException`→INVALID_REQUEST_BODY, `MissingServletRequestParameterException`→MISSING_REQUEST_PARAMETER, `MethodArgumentTypeMismatchException`→INVALID_PARAMETER_TYPE, `HttpRequestMethodNotSupportedException`→METHOD_NOT_ALLOWED, `ConstraintViolationException`·`HandlerMethodValidationException`(Spring 6.1+ 컨트롤러 파라미터 제약)→INVALID_INPUT_VALUE, `MaxUploadSizeExceededException`→PHOTO_TOO_LARGE. 컨트롤러 밖(필터)에서 난 예외는 `ErrorResponseController`(`/error`)가 같은 `ErrorResponse`로 낸다.
 
 ## 7. 인증·인가
 
@@ -419,7 +419,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
-6. `GlobalExceptionHandler`에 6장 핸들러 6개 누락
 7. Clock 빈·Auditing DateTimeProvider·컨테이너 타임존 없음(5장). `User.recordLogin()`이 `LocalDateTime.now()` 직접 호출
 8. Flyway 미도입, dev가 `ddl-auto: update` — 5장대로 전환, `V1__init.sql` 작성
 9. Redis 없음(SSE 팬아웃·속도 제한·스케줄 락) — compose에 `redis:7` 추가, `RedisConfig`
