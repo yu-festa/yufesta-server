@@ -406,7 +406,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 - 서비스: `@ExtendWith(MockitoExtension.class)` + `@Mock`/`@InjectMocks`(기존 스타일). 메서드명은 한글로 `상황_결과()` (예: `마감_후_신청하면_MATCH_ROUND_NOT_OPEN을_던진다`).
 - 리포지토리·제약: `@DataJpaTest`(H2 MySQL 모드). 유니크 제약과 커스텀 쿼리는 여기서 검증.
-- 컨트롤러: `@WebMvcTest(controllers = X.class)` + `@MockitoBean` 서비스. principal이 `Long`이라 `@WithMockUser`로는 `userId`가 null이 된다. `src/test/java/com/yufesta/support/WithMockLoginUser`(`id`·`role` 지정)를 쓴다.
+- 컨트롤러: `@WebMvcTest(controllers = X.class)` + `@MockitoBean` 서비스, `src/test/java/com/yufesta/support/ControllerTestSupport` 상속(실제 SecurityConfig·CorsConfig를 슬라이스에 넣고 보안 협력 빈은 mock). principal이 `Long`이라 `@WithMockUser`로는 `userId`가 null이 된다. `src/test/java/com/yufesta/support/WithMockLoginUser`(`id`·`role` 지정)를 쓴다.
 - 시간 의존 로직은 `Clock.fixed`. `Thread.sleep`으로 시간을 맞추지 않는다.
 - 매칭 엔진: 순수 단위 테스트. 최소 케이스 — 1:1 완전 매칭, 성비 2:1에서 전원 배정, N 상한 초과 시 미매칭 발생, 차단 쌍 제외, 이전 회차 쌍 제외, 동점 결정성, 한쪽 0명.
 - 새 기능에는 서비스 단위 테스트가 반드시 포함된다. 커버리지 수치는 강제하지 않는다.
@@ -418,9 +418,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
-3. 로그인 성공 후 `redirect`가 API 서버 상대 경로로 감 — `app.auth.frontend-url`(이미 yml에 연결됨) + 경로로 리다이렉트(상대 경로 검증은 유지)
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
-5. `GET /api/v1/auth/me`(로그인 여부·role) 없음 — 프론트 게이트에 필요
 6. `GlobalExceptionHandler`에 6장 핸들러 6개 누락
 7. Clock 빈·Auditing DateTimeProvider·컨테이너 타임존 없음(5장). `User.recordLogin()`이 `LocalDateTime.now()` 직접 호출
 8. Flyway 미도입, dev가 `ddl-auto: update` — 5장대로 전환, `V1__init.sql` 작성
