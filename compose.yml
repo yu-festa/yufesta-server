@@ -4,6 +4,7 @@ services:
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-yufesta}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-yufesta}
+      TZ: Asia/Seoul
     ports:
       - "3306:3306"
     healthcheck:
