@@ -10,6 +10,7 @@ import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
 import com.yufesta.domain.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +30,7 @@ class UserServiceTest {
     @Test
     void 회원의_역할을_조회한다() {
         when(userRepository.findById(1L))
-                .thenReturn(Optional.of(new User(OAuthProvider.GOOGLE, "sub", UserRole.OWNER)));
+                .thenReturn(Optional.of(User.builder().provider(OAuthProvider.GOOGLE).providerUserId("sub").role(UserRole.OWNER).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build()));
 
         assertThat(userService.getRole(1L)).isEqualTo(UserRole.OWNER);
     }

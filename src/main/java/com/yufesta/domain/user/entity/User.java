@@ -14,9 +14,13 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * 소셜 로그인 회원. 운영자도 role로만 구분한다
+ */
 @Getter
 @Entity
 @Table(
@@ -53,15 +57,16 @@ public class User extends BaseTimeEntity {
 
     private LocalDateTime lastLoginAt;
 
-    public User(OAuthProvider provider, String providerUserId, UserRole role) {
+    @Builder
+    private User(OAuthProvider provider, String providerUserId, UserRole role, LocalDateTime loginAt) {
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.role = role;
-        recordLogin();
+        this.lastLoginAt = loginAt;
     }
 
-    // 마지막 로그인 시각을 현재 시각으로 갱신
-    public void recordLogin() {
-        this.lastLoginAt = LocalDateTime.now();
+    // 시각은 호출 측이 Clock으로 구해 넘긴다. 엔티티는 시계를 모른다
+    public void recordLogin(LocalDateTime now) {
+        this.lastLoginAt = now;
     }
 }
