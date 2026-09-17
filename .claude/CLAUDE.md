@@ -425,7 +425,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 8. Flyway 미도입 — 인스타팅 완료 후, 인프라 작업 전에 5장대로 도입(`V1__init.sql`은 그 시점의 `docs/erd.sql`에서 생성)
 9. Redis 없음(SSE 팬아웃·속도 제한·스케줄 락) — compose에 `redis:7` 추가, `RedisConfig`
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
-11. `AppSettingReader`(타입 getter·캐시·SettingKey enum) 없음 — match 가중치 조회에 필요하므로 먼저
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
 14. `RequestLoggingFilter`에 MDC `userId`·`X-Request-Id` 없음

@@ -1,9 +1,7 @@
 package com.yufesta.domain.appsetting.service;
 
-import com.yufesta.domain.appsetting.entity.AppSetting;
-import com.yufesta.domain.appsetting.repository.AppSettingRepository;
+import com.yufesta.domain.appsetting.enums.SettingKey;
 import com.yufesta.domain.user.enums.OAuthProvider;
-import java.util.Arrays;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,21 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class AdminAllowlistService {
 
-    private static final String ADMIN_ALLOWLIST_KEY = "admin.allowlist";
+    private final AppSettingReader appSettingReader;
 
-    private final AppSettingRepository appSettingRepository;
-
-    public AdminAllowlistService(AppSettingRepository appSettingRepository) {
-        this.appSettingRepository = appSettingRepository;
+    public AdminAllowlistService(AppSettingReader appSettingReader) {
+        this.appSettingReader = appSettingReader;
     }
 
-    // 운영자 허용 목록에 현재 소셜 계정이 있는지 확인
+    /** 운영자 허용 목록에 현재 소셜 계정이 있는지 확인한다. */
     public boolean contains(OAuthProvider provider, String providerUserId) {
-        return appSettingRepository.findById(ADMIN_ALLOWLIST_KEY)
-                .map(AppSetting::getSettingValue)
-                .stream()
-                .flatMap(value -> Arrays.stream(value.split(",")))
-                .map(String::trim)
+        return appSettingReader.getList(SettingKey.ADMIN_ALLOWLIST).stream()
                 .anyMatch(account -> matches(provider, providerUserId, account));
     }
 
