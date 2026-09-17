@@ -7,6 +7,11 @@ spring:
 
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        # ERD의 TINYINT(1)과 맞춘다. 기본값 bit이면 validate 전환 때 불리언 컬럼이 전부 어긋난다
+        type:
+          preferred_boolean_jdbc_type: TINYINT
 
 management:
   endpoints:
