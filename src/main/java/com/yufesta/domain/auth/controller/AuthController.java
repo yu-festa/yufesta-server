@@ -1,42 +1,41 @@
 package com.yufesta.domain.auth.controller;
 
+import com.yufesta.common.response.ApiResponse;
 import com.yufesta.common.security.jwt.AuthCookieService;
+import com.yufesta.domain.auth.controller.api.AuthApi;
+import com.yufesta.domain.auth.dto.response.AuthMeResponse;
+import com.yufesta.domain.auth.service.AuthService;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.web.csrf.CsrfToken;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 인증 쿠키를 정리하는 API
+ * 인증 API. 명세는 AuthApi
  */
 @RestController
-@RequestMapping("/api/v1/auth")
-public class AuthController {
+public class AuthController implements AuthApi {
 
     private final AuthCookieService authCookieService;
+    private final AuthService authService;
 
-    public AuthController(AuthCookieService authCookieService) {
+    public AuthController(AuthCookieService authCookieService, AuthService authService) {
         this.authCookieService = authCookieService;
+        this.authService = authService;
     }
 
-    /**
-     * 브라우저가 쓰기 요청 전에 CSRF 쿠키를 발급받는 엔드포인트
-     */
-    @GetMapping("/csrf")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    // 쓰기 요청에 사용할 XSRF-TOKEN 쿠키를 발급
+    @Override
     public void issueCsrfToken(CsrfToken csrfToken) {
+        // 토큰을 읽어야 CookieCsrfTokenRepository가 XSRF-TOKEN 쿠키를 응답에 싣는다
         csrfToken.getToken();
     }
 
-    @PostMapping("/logout")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    // JWT 쿠키를 삭제해 현재 브라우저를 로그아웃
+    @Override
     public void logout(HttpServletResponse response) {
         authCookieService.deleteAccessToken(response);
+    }
+
+    @Override
+    public ApiResponse<AuthMeResponse> getMe(Long userId) {
+        return ApiResponse.success(authService.getMe(userId));
     }
 }

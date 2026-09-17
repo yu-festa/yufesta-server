@@ -8,7 +8,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 
 /**
- * OAuth 시작 전에 안전한 원래 이동 경로를 세션에 보관
+ * OAuth 시작 전에 안전한 원래 이동 경로(프론트 상대 경로)를 세션에 보관
  * state 자체의 검증은 Spring Security의 세션 기반 저장소가 담당
  */
 public class OAuth2RedirectRequestResolver implements OAuth2AuthorizationRequestResolver {
@@ -24,21 +24,26 @@ public class OAuth2RedirectRequestResolver implements OAuth2AuthorizationRequest
         );
     }
 
+    // 인가 요청 리다이렉트 필터가 모든 요청에서 호출하므로, 실제 로그인 시작 요청일 때만 경로를 저장
     @Override
-    // 기본 OAuth 요청을 만들고 원래 이동 경로를 저장
     public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
-        storeRedirectUri(request);
-        return delegate.resolve(request);
+        OAuth2AuthorizationRequest authorizationRequest = delegate.resolve(request);
+        if (authorizationRequest != null) {
+            storeRedirectUri(request);
+        }
+        return authorizationRequest;
     }
 
     @Override
-    // 제공자가 지정된 OAuth 요청을 만들고 원래 이동 경로를 저장
     public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
-        storeRedirectUri(request);
-        return delegate.resolve(request, clientRegistrationId);
+        OAuth2AuthorizationRequest authorizationRequest = delegate.resolve(request, clientRegistrationId);
+        if (authorizationRequest != null) {
+            storeRedirectUri(request);
+        }
+        return authorizationRequest;
     }
 
-    // 로그인 성공 뒤 저장한 원래 이동 경로를 꺼냄
+    // 로그인 성공 뒤 저장한 원래 이동 경로(상대 경로)를 꺼냄. 없으면 루트
     public static String consumeRedirectUri(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {

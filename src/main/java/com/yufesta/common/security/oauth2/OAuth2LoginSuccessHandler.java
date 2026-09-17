@@ -22,21 +22,24 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private final OAuth2ProviderUserIdExtractor providerUserIdExtractor;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthCookieService authCookieService;
+    private final FrontendUrl frontendUrl;
 
     public OAuth2LoginSuccessHandler(
             UserLoginService userLoginService,
             OAuth2ProviderUserIdExtractor providerUserIdExtractor,
             JwtTokenProvider jwtTokenProvider,
-            AuthCookieService authCookieService
+            AuthCookieService authCookieService,
+            String frontendUrl
     ) {
         this.userLoginService = userLoginService;
         this.providerUserIdExtractor = providerUserIdExtractor;
         this.jwtTokenProvider = jwtTokenProvider;
         this.authCookieService = authCookieService;
+        this.frontendUrl = new FrontendUrl(frontendUrl);
     }
 
+    // 소셜 로그인 성공 후 사용자 처리, 쿠키 발급, 프론트의 원래 화면으로 이동
     @Override
-    // 소셜 로그인 성공 후 사용자 처리, 쿠키 발급, 원래 경로 이동을 수행
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -51,8 +54,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         authCookieService.addAccessToken(response, jwtTokenProvider.createAccessToken(user.getId()));
 
-        String redirectUri = OAuth2RedirectRequestResolver.consumeRedirectUri(request);
+        String redirectPath = OAuth2RedirectRequestResolver.consumeRedirectUri(request);
         HttpSessionCleaner.invalidate(request);
-        getRedirectStrategy().sendRedirect(request, response, redirectUri);
+        getRedirectStrategy().sendRedirect(request, response, frontendUrl.resolve(redirectPath));
     }
 }
