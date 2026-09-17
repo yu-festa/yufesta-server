@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yufesta.domain.user.enums.UserRole;
-import com.yufesta.support.SecurityRulesTestController;
+import com.yufesta.support.TestEndpointController;
 import com.yufesta.support.WithMockLoginUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(SecurityRulesTestController.class)
+@Import(TestEndpointController.class)
 class SecurityConfigTest {
 
     private static final String FRONTEND_ORIGIN = "http://localhost:3000";

@@ -1,17 +1,21 @@
 package com.yufesta.support;
 
+import jakarta.validation.constraints.Min;
+import java.util.Map;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 인가 규칙 테스트 전용 엔드포인트. @TestComponent라 컴포넌트 스캔에서 제외되며 @Import로만 사용한다
+ * 인가 규칙·예외 처리 테스트 전용 엔드포인트. @TestComponent라 컴포넌트 스캔에서 제외되며 @Import로만 사용한다
  */
 @RestController
 @TestComponent
-public class SecurityRulesTestController {
+public class TestEndpointController {
 
     @GetMapping("/api/v1/ping")
     public String publicRead() {
@@ -21,6 +25,18 @@ public class SecurityRulesTestController {
     @PostMapping("/api/v1/ping")
     public String authenticatedWrite() {
         return "ok";
+    }
+
+    // 파라미터 제약 검증(HandlerMethodValidationException), 누락, 타입 불일치 재현용
+    @GetMapping("/api/v1/validated")
+    public String validated(@RequestParam @Min(1) int size) {
+        return "ok";
+    }
+
+    // 잘못된 JSON 본문(HttpMessageNotReadableException) 재현용
+    @PostMapping("/api/v1/echo")
+    public Map<String, Object> echo(@RequestBody Map<String, Object> body) {
+        return body;
     }
 
     @PostMapping("/api/v1/cheers")

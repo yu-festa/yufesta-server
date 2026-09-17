@@ -54,6 +54,13 @@ class AuthControllerTest extends ControllerTestSupport {
     }
 
     @Test
+    void 로그아웃을_GET으로_부르면_500이_아니라_405_JSON이다() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/logout"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
     void 로그아웃은_204이고_access_token_쿠키를_만료시킨다() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout").with(csrf()))
                 .andExpect(status().isNoContent())
