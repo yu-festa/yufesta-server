@@ -3,6 +3,8 @@ package com.yufesta.common.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yufesta.domain.appsetting.repository.AppSettingRepository;
+import com.yufesta.domain.match.enums.RoundStatus;
+import com.yufesta.domain.match.repository.MatchRoundRepository;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,8 +28,11 @@ class DevSeedDataTest {
     @Autowired
     private AppSettingRepository appSettingRepository;
 
+    @Autowired
+    private MatchRoundRepository matchRoundRepository;
+
     @Test
-    void 시드는_app_settings_16행을_넣고_다시_실행해도_중복되지_않는다() {
+    void 시드는_설정_16행과_회차_2행을_넣고_다시_실행해도_중복되지_않는다() {
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator(new ClassPathResource("db/dev/data.sql"));
 
         populator.execute(dataSource);
@@ -42,5 +47,11 @@ class DevSeedDataTest {
                 .get()
                 .extracting(setting -> setting.getSettingValue())
                 .isEqualTo("3");
+        assertThat(matchRoundRepository.findAllByOrderBySeqAsc())
+                .extracting(round -> round.getSeq(), round -> round.getStatus())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(1, RoundStatus.SCHEDULED),
+                        org.assertj.core.groups.Tuple.tuple(2, RoundStatus.SCHEDULED)
+                );
     }
 }

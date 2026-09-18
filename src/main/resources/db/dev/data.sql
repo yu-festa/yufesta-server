@@ -21,7 +21,7 @@ INSERT IGNORE INTO `app_settings` (`setting_key`, `setting_value`, `description`
   ('ratelimit.cheer.ip_per_minute', '10',  '응원 메시지 IP당 분당 작성 수', NOW(), NOW()),
   ('ratelimit.lostitem.per_minute', '1',   '분실물 회원당 분당 작성 수', NOW(), NOW()),
   ('admin.allowlist',               '', '운영자로 승격할 소셜 계정(PROVIDER:id). 최초 로그인 시 role 부여', NOW(), NOW());
--- match_rounds 초기 회차는 M1(인스타팅 엔티티)에서 테이블이 생긴 뒤 주석을 푼다.
--- INSERT IGNORE INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
---   (1, '2026-10-01 00:00:00', '2026-10-08 15:50:00', '2026-10-08 16:00:00', 'SCHEDULED', NOW(), NOW()),
---   (2, '2026-10-08 16:00:00', '2026-10-08 19:50:00', '2026-10-08 20:00:00', 'SCHEDULED', NOW(), NOW());
+-- 초기 회차(SRS FR-MT-01 예시). 실제 시각은 운영자 API로 수정한다. close_at = publish_at - 10분
+INSERT IGNORE INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
+  (1, '2026-10-01 00:00:00', '2026-10-08 15:50:00', '2026-10-08 16:00:00', 'SCHEDULED', NOW(), NOW()),
+  (2, '2026-10-08 16:00:00', '2026-10-08 19:50:00', '2026-10-08 20:00:00', 'SCHEDULED', NOW(), NOW());
