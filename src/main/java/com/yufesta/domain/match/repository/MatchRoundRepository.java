@@ -22,6 +22,9 @@ public interface MatchRoundRepository extends JpaRepository<MatchRound, Long> {
 
     Optional<MatchRound> findFirstByStatusInOrderBySeqAsc(Collection<RoundStatus> statuses);
 
+    // 가장 최근에 발표된 회차. 결과 도착 표시(FR-MT-54)의 기준
+    Optional<MatchRound> findFirstByPublishedAtIsNotNullOrderBySeqDesc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from MatchRound r where r.id = :id")
     Optional<MatchRound> findByIdForUpdate(@Param("id") Long id);
