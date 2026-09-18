@@ -1,6 +1,6 @@
 # YU FESTA 서버 — Claude 작업 지침
 
-영남대 2026 가을 대동제(10/8 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
+영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
 요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.2)다. `docs/`는 git에서 제외된 로컬 참조 사본이다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
@@ -309,7 +309,7 @@ denyAll     : anyRequest
 ## 8. 도메인 불변 규칙 (SRS 요약 — 위반 금지)
 
 **인스타팅 `match`** (FR-MT, 부록 A)
-- 회차는 2행(seq 1·2). 상태 `SCHEDULED → OPEN → CLOSED → PUBLISHED`. `close_at = publish_at − 10분`, 2회차 `open_at = 1회차 publish_at`. 열린 회차는 항상 하나. 초기값: 1회차 open_at = 사전 오픈(며칠 전), 발표 10/8 16:00 / 2회차 발표 20:00. 시각은 `match_rounds` 행에 있고 운영자가 수정한다. 코드에 시각을 하드코딩하지 않는다.
+- 회차는 2행(seq 1·2). 상태 `SCHEDULED → OPEN → CLOSED → PUBLISHED`. `close_at = publish_at − 10분`, 2회차 `open_at = 1회차 publish_at`. 열린 회차는 항상 하나. 초기값: 1회차 open_at = 사전 오픈(며칠 전), 발표 10/2 16:00 / 2회차 발표 20:00. 시각은 `match_rounds` 행에 있고 운영자가 수정한다. 코드에 시각을 하드코딩하지 않는다.
 - 신청·수정·취소는 회차가 OPEN이고 `now < close_at`일 때만. 그 외 `MATCH_ROUND_NOT_OPEN`.
 - 회원당 회차 1건(`uk_app_user_round`), 인스타 ID 회차 내 유니크(`uk_app_round_insta`). 인스타 ID 정규화: trim → 선행 `@` 제거 → 소문자 → `^[a-z0-9._]{1,30}$` 검사. 닉네임 2~8자, 성별 M/F 필수, 태그 ≤3(고정 10개 목록 외 거부), 소개 ≤40자.
 - 동의 없이는 저장 불가: `terms_version`, `privacy_version`, `age_confirmed=1`, `agreed_at` 기록(FR-MT-11·12).
@@ -431,7 +431,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 ## 13. 개선 후보 (MVP 이후)
 
-축제(10/8) 전에는 8장 규칙대로 가장 단순한 방식으로 만든다. 아래는 그 다음 단계에서 교체하거나 덧붙일 수 있는 지점이며, 각 항목은 "지금 방식 → 개선"과 해결하는 문제를 적었다.
+축제(10/2) 전에는 8장 규칙대로 가장 단순한 방식으로 만든다. 아래는 그 다음 단계에서 교체하거나 덧붙일 수 있는 지점이며, 각 항목은 "지금 방식 → 개선"과 해결하는 문제를 적었다.
 
 두 가지 규칙
 - **미리 구현하지 않는다.** 요청받지 않으면 이 항목들을 선제 도입하지 않는다. 지금 필요한 건 단순한 구현 하나다.
