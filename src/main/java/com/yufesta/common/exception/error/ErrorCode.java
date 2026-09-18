@@ -28,7 +28,20 @@ public enum ErrorCode {
 
     // 설정 (운영 설정 오류라 사용자 잘못이 아니므로 500)
     APP_SETTING_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_NOT_FOUND", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
-    APP_SETTING_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_INVALID", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+    APP_SETTING_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_INVALID", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
+
+    // 인스타팅
+    MATCH_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_ROUND_NOT_FOUND", "회차를 찾을 수 없습니다."),
+    MATCH_ROUND_NOT_OPEN(HttpStatus.CONFLICT, "MATCH_ROUND_NOT_OPEN", "지금은 신청을 받지 않는 시간이에요."),
+    MATCH_ROUND_INVALID_STATUS(HttpStatus.CONFLICT, "MATCH_ROUND_INVALID_STATUS", "현재 회차 상태에서는 할 수 없는 작업입니다."),
+    APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "APPLICATION_NOT_FOUND", "신청 내역을 찾을 수 없습니다."),
+    APPLICATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "APPLICATION_ALREADY_EXISTS", "이미 이번 회차에 신청했어요."),
+    APPLICATION_INSTAGRAM_DUPLICATE(HttpStatus.CONFLICT, "APPLICATION_INSTAGRAM_DUPLICATE", "이미 등록된 인스타그램 아이디예요."),
+    APPLICATION_INVALID_TAG(HttpStatus.BAD_REQUEST, "APPLICATION_INVALID_TAG", "선택할 수 없는 태그예요."),
+    USER_MATCHING_BLOCKED(HttpStatus.FORBIDDEN, "USER_MATCHING_BLOCKED", "인스타팅 참여가 제한된 계정이에요."),
+    MATCH_RESULT_NOT_PUBLISHED(HttpStatus.CONFLICT, "MATCH_RESULT_NOT_PUBLISHED", "아직 결과 발표 전이에요."),
+    MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_NOT_FOUND", "매칭 결과를 찾을 수 없습니다."),
+    BLOCK_ALREADY_EXISTS(HttpStatus.CONFLICT, "BLOCK_ALREADY_EXISTS", "이미 신고한 상대예요.");
 
     private final HttpStatus status;
     private final String code;
