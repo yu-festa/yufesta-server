@@ -39,4 +39,5 @@ out/
 .vscode/
 
 ### 문서 ###
-docs/
+# 설계 원문(srs.md, erd.md, erd.sql)은 추적한다. 개인 작업 메모만 제외
+docs/match-plan.md
