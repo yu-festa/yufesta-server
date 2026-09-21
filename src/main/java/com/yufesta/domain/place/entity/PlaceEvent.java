@@ -48,4 +48,10 @@ public class PlaceEvent extends BaseTimeEntity {
         this.timeText = timeText;
         this.sortOrder = sortOrder;
     }
+
+    public void update(String name, String timeText, int sortOrder) {
+        this.name = name;
+        this.timeText = timeText;
+        this.sortOrder = sortOrder;
+    }
 }
