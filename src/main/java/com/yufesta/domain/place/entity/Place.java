@@ -79,4 +79,26 @@ public class Place extends BaseTimeEntity {
         this.sortOrder = sortOrder;
         this.active = active;
     }
+
+    public void update(
+            String name,
+            PlaceCategory category,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            String description,
+            String building,
+            String floor,
+            int sortOrder,
+            boolean active
+    ) {
+        this.name = name;
+        this.category = category;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.description = description;
+        this.building = building;
+        this.floor = floor;
+        this.sortOrder = sortOrder;
+        this.active = active;
+    }
 }
