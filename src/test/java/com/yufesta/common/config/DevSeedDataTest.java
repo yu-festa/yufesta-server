@@ -50,7 +50,7 @@ class DevSeedDataTest {
         assertThat(matchRoundRepository.findAllByOrderBySeqAsc())
                 .extracting(round -> round.getSeq(), round -> round.getStatus())
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(1, RoundStatus.SCHEDULED),
+                        org.assertj.core.groups.Tuple.tuple(1, RoundStatus.OPEN),
                         org.assertj.core.groups.Tuple.tuple(2, RoundStatus.SCHEDULED)
                 );
     }

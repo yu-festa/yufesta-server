@@ -22,6 +22,7 @@ INSERT IGNORE INTO `app_settings` (`setting_key`, `setting_value`, `description`
   ('ratelimit.lostitem.per_minute', '1',   '분실물 회원당 분당 작성 수', NOW(), NOW()),
   ('admin.allowlist',               '', '운영자로 승격할 소셜 계정(PROVIDER:id). 최초 로그인 시 role 부여', NOW(), NOW());
 -- 초기 회차(SRS FR-MT-01 예시). 실제 시각은 운영자 API로 수정한다. close_at = publish_at - 10분
+-- dev에서는 1회차를 OPEN으로 두어 바로 신청을 테스트할 수 있게 한다
 INSERT IGNORE INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
-  (1, '2026-09-25 00:00:00', '2026-10-02 15:50:00', '2026-10-02 16:00:00', 'SCHEDULED', NOW(), NOW()),
+  (1, '2026-09-25 00:00:00', '2026-10-02 15:50:00', '2026-10-02 16:00:00', 'OPEN', NOW(), NOW()),
   (2, '2026-10-02 16:00:00', '2026-10-02 19:50:00', '2026-10-02 20:00:00', 'SCHEDULED', NOW(), NOW());
