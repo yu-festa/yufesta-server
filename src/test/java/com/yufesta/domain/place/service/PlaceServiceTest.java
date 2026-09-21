@@ -2,11 +2,15 @@ package com.yufesta.domain.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
+import com.yufesta.domain.place.dto.request.CreatePlaceRequest;
+import com.yufesta.domain.place.dto.request.UpdatePlaceRequest;
+import com.yufesta.domain.place.dto.response.AdminPlaceResponse;
 import com.yufesta.domain.place.dto.response.PlaceDetailResponse;
 import com.yufesta.domain.place.dto.response.PlaceListResponse;
 import com.yufesta.domain.place.entity.Place;
@@ -90,6 +94,48 @@ class PlaceServiceTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PLACE_NOT_FOUND));
     }
 
+    @Test
+    void 운영자는_장소의_표시순서와_노출여부를_직접_입력해_등록한다() {
+        when(placeRepository.save(any(Place.class))).thenAnswer(invocation -> {
+            Place savedPlace = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedPlace, "id", 3L);
+            return savedPlace;
+        });
+
+        AdminPlaceResponse result = placeService.createPlace(createPlaceRequest());
+
+        assertThat(result)
+                .extracting(AdminPlaceResponse::id, AdminPlaceResponse::name,
+                        AdminPlaceResponse::sortOrder, AdminPlaceResponse::active)
+                .containsExactly(3L, "중앙 무대", 1, true);
+    }
+
+    @Test
+    void 비노출_장소도_운영자가_수정해_다시_노출할_수_있다() {
+        Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
+        place.update(
+                place.getName(), place.getCategory(), place.getLatitude(), place.getLongitude(),
+                place.getDescription(), place.getBuilding(), place.getFloor(), place.getSortOrder(), false
+        );
+        when(placeRepository.findById(1L)).thenReturn(Optional.of(place));
+
+        AdminPlaceResponse result = placeService.updatePlace(1L, updatePlaceRequest());
+
+        assertThat(result)
+                .extracting(AdminPlaceResponse::name, AdminPlaceResponse::sortOrder, AdminPlaceResponse::active)
+                .containsExactly("중앙 무대 수정", 2, true);
+    }
+
+    @Test
+    void 없는_장소는_수정할_수_없다() {
+        when(placeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> placeService.updatePlace(999L, updatePlaceRequest()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PLACE_NOT_FOUND));
+    }
+
+
     private Place place(Long id, String name, PlaceCategory category, int sortOrder) {
         Place place = Place.builder()
                 .name(name)
@@ -104,5 +150,33 @@ class PlaceServiceTest {
                 .build();
         ReflectionTestUtils.setField(place, "id", id);
         return place;
+    }
+
+    private CreatePlaceRequest createPlaceRequest() {
+        return CreatePlaceRequest.builder()
+                .name("중앙 무대")
+                .category(PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210"))
+                .longitude(new BigDecimal("128.7542100"))
+                .description("축제 주요 공연이 진행되는 무대")
+                .building(null)
+                .floor(null)
+                .sortOrder(1)
+                .active(true)
+                .build();
+    }
+
+    private UpdatePlaceRequest updatePlaceRequest() {
+        return UpdatePlaceRequest.builder()
+                .name("중앙 무대 수정")
+                .category(PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210"))
+                .longitude(new BigDecimal("128.7542100"))
+                .description("수정된 장소 설명")
+                .building("학생회관")
+                .floor("1층")
+                .sortOrder(2)
+                .active(true)
+                .build();
     }
 }
