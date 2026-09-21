@@ -22,6 +22,15 @@ public class UserService {
     }
 
     /**
+     * 회원 엔티티를 조회한다. 다른 도메인이 연관(예: 신청의 user)을 맺을 때 쓴다.
+     * @throws CustomException USER_NOT_FOUND
+     */
+    public User getUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
      * 회원의 역할을 조회한다.
      * @throws CustomException USER_NOT_FOUND
      */

@@ -1,10 +1,12 @@
 package com.yufesta.domain.match.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Arrays;
 
 /**
  * 나이대. DB에는 ERD 값("19-21" 등)으로 저장되며 변환은 AgeBandConverter가 맡는다.
- * 점수 계산의 "인접"은 선언 순서가 이웃인 경우다
+ * 점수 계산의 "인접"은 선언 순서가 이웃인 경우다. JSON도 enum 이름이 아니라 이 값("19-21")을 쓴다(§4 예외)
  */
 public enum AgeBand {
 
@@ -19,6 +21,7 @@ public enum AgeBand {
         this.value = value;
     }
 
+    @JsonValue
     public String value() {
         return value;
     }
@@ -27,6 +30,7 @@ public enum AgeBand {
         return Math.abs(ordinal() - other.ordinal()) == 1;
     }
 
+    @JsonCreator
     public static AgeBand fromValue(String value) {
         return Arrays.stream(values())
                 .filter(band -> band.value.equals(value))

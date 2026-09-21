@@ -208,7 +208,7 @@ public class Notice extends BaseTimeEntity {
 - 응답 record는 `public static XResponse from(Entity e)` 정적 팩토리를 갖는다. 목록은 `ApiResponse<List<X>>` 또는 커서 페이지 record `PageResponse<X>(items, nextCursor, hasNext)`(`common/response`에 추가).
 - 공개 응답에 `userId`, `provider`, `providerUserId`, 신청 닉네임 등 식별 정보를 절대 넣지 않는다. 작성자 표시는 `displayName`과 `isMine`(boolean)만 (NFR-SC-07).
 - 시각은 `LocalDateTime`을 `yyyy-MM-dd'T'HH:mm:ss` 그대로 내보낸다. 모든 시각은 KST이며 오프셋을 붙이지 않는다. 프론트는 `serverNow`와 같은 기준으로 계산한다.
-- JSON은 camelCase, enum은 이름 문자열 그대로.
+- JSON은 camelCase, enum은 이름 문자열 그대로. 예외: `AgeBand`는 ERD 저장값(`19-21`, `28+`)을 JSON에도 쓴다(`@JsonValue`).
 
 ```java
 @Builder

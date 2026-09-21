@@ -45,6 +45,11 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+    # Try it out가 XSRF-TOKEN 쿠키를 읽어 X-XSRF-TOKEN 헤더로 보내게 한다(쓰기 API 테스트용)
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
 
 app:
   auth:

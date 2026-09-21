@@ -1,22 +1,37 @@
 package com.yufesta.domain.match.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
+import com.yufesta.domain.match.dto.response.ApplicationResponse;
 import com.yufesta.domain.match.dto.response.LastResultResponse;
 import com.yufesta.domain.match.dto.response.MatchRoundResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MySummaryResponse;
+import com.yufesta.domain.match.enums.AgeBand;
+import com.yufesta.domain.match.enums.EntryType;
+import com.yufesta.domain.match.enums.Gender;
 import com.yufesta.domain.match.enums.MatchResultStatus;
+import com.yufesta.domain.match.enums.MatchTag;
 import com.yufesta.domain.match.enums.RoundStatus;
+import com.yufesta.domain.match.service.ApplicationService;
 import com.yufesta.domain.match.service.MatchSummaryService;
 import com.yufesta.support.ControllerTestSupport;
 import com.yufesta.support.WithMockLoginUser;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -27,6 +42,9 @@ class MatchControllerTest extends ControllerTestSupport {
 
     @MockitoBean
     private MatchSummaryService matchSummaryService;
+
+    @MockitoBean
+    private ApplicationService applicationService;
 
     @Test
     void 비로그인도_홈_블록을_조회하고_시각은_오프셋_없이_내려간다() throws Exception {
@@ -63,6 +81,77 @@ class MatchControllerTest extends ControllerTestSupport {
                 .andExpect(jsonPath("$.data[0].code").value("ALCOHOL"))
                 .andExpect(jsonPath("$.data[0].label").value("술"))
                 .andExpect(jsonPath("$.data[9].code").value("ETC"));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 신청하면_201과_정규화된_응답을_주고_나이대는_ERD_값으로_오간다() throws Exception {
+        when(applicationService.apply(eq(7L), any(ApplyMatchRequest.class))).thenReturn(applicationResponse());
+
+        mockMvc.perform(post("/api/v1/match/applications").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"instagramId": "@Yu.Festa", "nickname": "펭귄", "gender": "F", "ageBand": "22-24",
+                                 "tags": ["MUSIC", "CAFE"], "intro": "같이 공연 봐요",
+                                 "termsVersion": "v1", "privacyVersion": "v1", "ageConfirmed": true}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.data.instagramId").value("yu.festa"))
+                .andExpect(jsonPath("$.data.ageBand").value("22-24"))
+                .andExpect(jsonPath("$.data.userId").doesNotExist());
+
+        verify(applicationService).apply(eq(7L), any(ApplyMatchRequest.class));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 형식_오류는_서비스에_가기_전에_400과_필드명으로_막힌다() throws Exception {
+        mockMvc.perform(post("/api/v1/match/applications").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"instagramId": "yu.festa", "nickname": "펭", "gender": "F",
+                                 "tags": ["MUSIC", "CAFE", "PET", "GAME"],
+                                 "termsVersion": "v1", "privacyVersion": "v1", "ageConfirmed": false}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
+                .andExpect(jsonPath("$.errors[*].field").value(
+                        org.hamcrest.Matchers.containsInAnyOrder("nickname", "tags", "ageConfirmed")));
+
+        verify(applicationService, org.mockito.Mockito.never()).apply(any(), any());
+    }
+
+    @Test
+    void 비로그인_신청은_401이다() throws Exception {
+        mockMvc.perform(post("/api/v1/match/applications").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 내_신청_조회와_취소() throws Exception {
+        when(applicationService.getMine(7L)).thenReturn(applicationResponse());
+
+        mockMvc.perform(get("/api/v1/match/applications/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roundSeq").value(1))
+                .andExpect(jsonPath("$.data.tags[0]").value("CAFE"));
+
+        mockMvc.perform(delete("/api/v1/match/applications/me").with(csrf()))
+                .andExpect(status().isNoContent());
+        verify(applicationService).cancel(7L);
+    }
+
+    private static ApplicationResponse applicationResponse() {
+        return ApplicationResponse.builder()
+                .id(42L).roundSeq(1).instagramId("yu.festa").nickname("펭귄").gender(Gender.F)
+                .ageBand(AgeBand.A22_24).tags(List.of(MatchTag.CAFE, MatchTag.MUSIC)).intro("같이 공연 봐요")
+                .entryType(EntryType.NEW).createdAt(NOW)
+                .build();
     }
 
     private static MatchSummaryResponse summary(MySummaryResponse my) {
