@@ -8,10 +8,13 @@ import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
+import com.yufesta.domain.place.dto.request.CreatePlaceEventRequest;
 import com.yufesta.domain.place.dto.request.CreatePlaceRequest;
+import com.yufesta.domain.place.dto.request.UpdatePlaceEventRequest;
 import com.yufesta.domain.place.dto.request.UpdatePlaceRequest;
 import com.yufesta.domain.place.dto.response.AdminPlaceResponse;
 import com.yufesta.domain.place.dto.response.PlaceDetailResponse;
+import com.yufesta.domain.place.dto.response.PlaceEventResponse;
 import com.yufesta.domain.place.dto.response.PlaceListResponse;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.entity.PlaceEvent;
@@ -135,6 +138,51 @@ class PlaceServiceTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PLACE_NOT_FOUND));
     }
 
+    @Test
+    void 장소에_연결된_이벤트를_등록한다() {
+        Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
+        when(placeRepository.findById(1L)).thenReturn(Optional.of(place));
+        when(placeEventRepository.save(any(PlaceEvent.class))).thenAnswer(invocation -> {
+            PlaceEvent savedEvent = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedEvent, "id", 10L);
+            return savedEvent;
+        });
+
+        PlaceEventResponse result = placeService.createPlaceEvent(1L, createPlaceEventRequest());
+
+        assertThat(result)
+                .extracting(PlaceEventResponse::id, PlaceEventResponse::name,
+                        PlaceEventResponse::timeText, PlaceEventResponse::sortOrder)
+                .containsExactly(10L, "타로 동아리 별자리", "16:00 - 21:00", 1);
+    }
+
+    @Test
+    void 장소에_연결된_이벤트를_수정한다() {
+        Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
+        PlaceEvent placeEvent = PlaceEvent.builder()
+                .place(place).name("기존 이벤트").timeText("16:00 - 17:00").sortOrder(1)
+                .build();
+        ReflectionTestUtils.setField(placeEvent, "id", 10L);
+        when(placeRepository.findById(1L)).thenReturn(Optional.of(place));
+        when(placeEventRepository.findByIdAndPlace_Id(10L, 1L)).thenReturn(Optional.of(placeEvent));
+
+        PlaceEventResponse result = placeService.updatePlaceEvent(1L, 10L, updatePlaceEventRequest());
+
+        assertThat(result)
+                .extracting(PlaceEventResponse::name, PlaceEventResponse::timeText, PlaceEventResponse::sortOrder)
+                .containsExactly("수정된 이벤트", "17:00 - 21:00", 2);
+    }
+
+    @Test
+    void 다른_장소에_연결된_이벤트는_수정할_수_없다() {
+        Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
+        when(placeRepository.findById(1L)).thenReturn(Optional.of(place));
+        when(placeEventRepository.findByIdAndPlace_Id(10L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> placeService.updatePlaceEvent(1L, 10L, updatePlaceEventRequest()))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PLACE_EVENT_NOT_FOUND));
+    }
 
     private Place place(Long id, String name, PlaceCategory category, int sortOrder) {
         Place place = Place.builder()
@@ -177,6 +225,22 @@ class PlaceServiceTest {
                 .floor("1층")
                 .sortOrder(2)
                 .active(true)
+                .build();
+    }
+
+    private CreatePlaceEventRequest createPlaceEventRequest() {
+        return CreatePlaceEventRequest.builder()
+                .name("타로 동아리 별자리")
+                .timeText("16:00 - 21:00")
+                .sortOrder(1)
+                .build();
+    }
+
+    private UpdatePlaceEventRequest updatePlaceEventRequest() {
+        return UpdatePlaceEventRequest.builder()
+                .name("수정된 이벤트")
+                .timeText("17:00 - 21:00")
+                .sortOrder(2)
                 .build();
     }
 }

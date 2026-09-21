@@ -2,9 +2,12 @@ package com.yufesta.domain.place.controller;
 
 import com.yufesta.common.response.ApiResponse;
 import com.yufesta.domain.place.controller.api.AdminPlaceApi;
+import com.yufesta.domain.place.dto.request.CreatePlaceEventRequest;
 import com.yufesta.domain.place.dto.request.CreatePlaceRequest;
+import com.yufesta.domain.place.dto.request.UpdatePlaceEventRequest;
 import com.yufesta.domain.place.dto.request.UpdatePlaceRequest;
 import com.yufesta.domain.place.dto.response.AdminPlaceResponse;
+import com.yufesta.domain.place.dto.response.PlaceEventResponse;
 import com.yufesta.domain.place.service.PlaceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,4 +35,22 @@ public class AdminPlaceController implements AdminPlaceApi {
         return ApiResponse.success("장소를 수정했습니다.", placeService.updatePlace(placeId, request));
     }
 
+    @Override
+    public ResponseEntity<ApiResponse<PlaceEventResponse>> createPlaceEvent(
+            Long placeId,
+            CreatePlaceEventRequest request
+    ) {
+        PlaceEventResponse response = placeService.createPlaceEvent(placeId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(HttpStatus.CREATED, "장소 이벤트를 등록했습니다.", response));
+    }
+
+    @Override
+    public ApiResponse<PlaceEventResponse> updatePlaceEvent(
+            Long placeId,
+            Long placeEventId,
+            UpdatePlaceEventRequest request
+    ) {
+        return ApiResponse.success("장소 이벤트를 수정했습니다.", placeService.updatePlaceEvent(placeId, placeEventId, request));
+    }
 }
