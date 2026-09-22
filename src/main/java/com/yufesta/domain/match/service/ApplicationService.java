@@ -7,8 +7,10 @@ import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
 import com.yufesta.domain.match.entity.Application;
 import com.yufesta.domain.match.entity.MatchRound;
+import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.MatchTag;
 import com.yufesta.domain.match.repository.ApplicationRepository;
+import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.time.Clock;
@@ -34,17 +36,20 @@ public class ApplicationService {
     private static final String UK_ROUND_INSTA = "uk_app_round_insta";
 
     private final ApplicationRepository applicationRepository;
+    private final MatchRepository matchRepository;
     private final MatchRoundService matchRoundService;
     private final UserService userService;
     private final Clock clock;
 
     public ApplicationService(
             ApplicationRepository applicationRepository,
+            MatchRepository matchRepository,
             MatchRoundService matchRoundService,
             UserService userService,
             Clock clock
     ) {
         this.applicationRepository = applicationRepository;
+        this.matchRepository = matchRepository;
         this.matchRoundService = matchRoundService;
         this.userService = userService;
         this.clock = clock;
@@ -122,6 +127,77 @@ public class ApplicationService {
         LocalDateTime now = LocalDateTime.now(clock);
         MatchRound round = requireAcceptingRound(now);
         requireActiveApplication(userId, round).cancel(now);
+    }
+
+    /**
+     * 이전 회차에 매칭된 사람이 현재 회차에 다시 참여한다(FR-MT-03). 최근 발표 회차의 내 신청을 REJOIN으로 복사한다.
+     * 취소했던 현재 회차 신청이 있으면 새 행 대신 그 행을 되살린다.
+     * <p>검증: 매칭 차단 아님, 현재 회차 접수 중, 최근 발표 회차에서 매칭됨, 현재 회차 유효 신청 없음, 인스타 ID 유니크.
+     * @throws CustomException UNAUTHORIZED, USER_NOT_FOUND, USER_MATCHING_BLOCKED, MATCH_ROUND_NOT_OPEN,
+     *         MATCH_RESULT_NOT_PUBLISHED, MATCH_NOT_FOUND, APPLICATION_ALREADY_EXISTS, APPLICATION_INSTAGRAM_DUPLICATE
+     */
+    @Transactional
+    public ApplicationResponse rejoin(Long userId) {
+        User user = requireUser(userId);
+        requireNotBlocked(user);
+        LocalDateTime now = LocalDateTime.now(clock);
+        MatchRound current = requireAcceptingRound(now);
+        Application source = requireMatchedApplicationInLatestPublishedRound(userId);
+
+        Optional<Application> mine = applicationRepository.findByUser_IdAndRound_Id(userId, current.getId());
+        if (mine.filter(application -> !application.isCanceled()).isPresent()) {
+            throw new CustomException(ErrorCode.APPLICATION_ALREADY_EXISTS);
+        }
+        requireInstagramAvailable(current, source.getInstagramId(), mine.orElse(null));
+
+        Application application = mine
+                .map(canceled -> restoreFrom(canceled, source, now))
+                .orElseGet(() -> copyOf(source, user, current, EntryType.REJOIN));
+        return ApplicationResponse.from(saveAndTranslate(application));
+    }
+
+    // 재참여 대상: 최근 발표 회차에서 매칭된 내 신청. 미매칭자는 발표 때 이미 이월됐으므로 대상이 아니다
+    private Application requireMatchedApplicationInLatestPublishedRound(Long userId) {
+        MatchRound published = matchRoundService.findLatestPublishedRound()
+                .orElseThrow(() -> new CustomException(ErrorCode.MATCH_RESULT_NOT_PUBLISHED));
+        Application source = requireActiveApplication(userId, published);
+        if (!matchRepository.existsByApplication_Id(source.getId())) {
+            throw new CustomException(ErrorCode.MATCH_NOT_FOUND);
+        }
+        return source;
+    }
+
+    private static Application restoreFrom(Application canceled, Application source, LocalDateTime now) {
+        canceled.restore();
+        canceled.update(
+                source.getInstagramId(),
+                source.getNickname(),
+                source.getGender(),
+                source.getAgeBand(),
+                source.getTags(),
+                source.getIntro()
+        );
+        canceled.agree(source.getTermsVersion(), source.getPrivacyVersion(), source.isAgeConfirmed(), now);
+        return canceled;
+    }
+
+    private static Application copyOf(Application source, User user, MatchRound round, EntryType entryType) {
+        return Application.builder()
+                .user(user)
+                .round(round)
+                .instagramId(source.getInstagramId())
+                .nickname(source.getNickname())
+                .gender(source.getGender())
+                .ageBand(source.getAgeBand())
+                .tags(source.getTags())
+                .intro(source.getIntro())
+                .entryType(entryType)
+                .sourceApplication(source)
+                .termsVersion(source.getTermsVersion())
+                .privacyVersion(source.getPrivacyVersion())
+                .ageConfirmed(source.isAgeConfirmed())
+                .agreedAt(source.getAgreedAt())
+                .build();
     }
 
     private User requireUser(Long userId) {

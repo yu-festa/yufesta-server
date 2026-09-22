@@ -5,9 +5,11 @@ import com.yufesta.domain.match.controller.api.MatchApi;
 import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
 import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
+import com.yufesta.domain.match.dto.response.MatchResultResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
 import com.yufesta.domain.match.service.ApplicationService;
+import com.yufesta.domain.match.service.MatchResultService;
 import com.yufesta.domain.match.service.MatchSummaryService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -22,10 +24,16 @@ public class MatchController implements MatchApi {
 
     private final MatchSummaryService matchSummaryService;
     private final ApplicationService applicationService;
+    private final MatchResultService matchResultService;
 
-    public MatchController(MatchSummaryService matchSummaryService, ApplicationService applicationService) {
+    public MatchController(
+            MatchSummaryService matchSummaryService,
+            ApplicationService applicationService,
+            MatchResultService matchResultService
+    ) {
         this.matchSummaryService = matchSummaryService;
         this.applicationService = applicationService;
+        this.matchResultService = matchResultService;
     }
 
     @Override
@@ -58,5 +66,17 @@ public class MatchController implements MatchApi {
     @Override
     public void cancelMyApplication(Long userId) {
         applicationService.cancel(userId);
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ApplicationResponse>> rejoin(Long userId) {
+        ApplicationResponse response = applicationService.rejoin(userId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(HttpStatus.CREATED, "2회차 참여가 완료되었어요.", response));
+    }
+
+    @Override
+    public ApiResponse<MatchResultResponse> getMyResult(Long userId, Integer roundSeq) {
+        return ApiResponse.success(matchResultService.getMyResult(userId, roundSeq));
     }
 }

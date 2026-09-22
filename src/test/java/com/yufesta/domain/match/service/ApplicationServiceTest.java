@@ -19,6 +19,7 @@ import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.Gender;
 import com.yufesta.domain.match.enums.MatchTag;
 import com.yufesta.domain.match.repository.ApplicationRepository;
+import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
@@ -50,6 +51,9 @@ class ApplicationServiceTest {
     private ApplicationRepository applicationRepository;
 
     @Mock
+    private MatchRepository matchRepository;
+
+    @Mock
     private MatchRoundService matchRoundService;
 
     @Mock
@@ -62,7 +66,8 @@ class ApplicationServiceTest {
     @BeforeEach
     void setUp() {
         applicationService = new ApplicationService(
-                applicationRepository, matchRoundService, userService, Clock.fixed(NOW.atZone(KST).toInstant(), KST)
+                applicationRepository, matchRepository, matchRoundService, userService,
+                Clock.fixed(NOW.atZone(KST).toInstant(), KST)
         );
         round = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(CLOSE_AT).publishAt(CLOSE_AT.plusMinutes(10)).build();
         round.open();
@@ -223,6 +228,69 @@ class ApplicationServiceTest {
 
         round.close();
         assertError(() -> applicationService.cancel(USER_ID), ErrorCode.MATCH_ROUND_NOT_OPEN);
+    }
+
+    @Test
+    void 재참여는_최근_발표_회차의_매칭된_신청을_현재_회차에_REJOIN으로_복사한다() {
+        MatchRound published = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(NOW.minusHours(2)).publishAt(NOW.minusHours(1)).build();
+        ReflectionTestUtils.setField(published, "id", 9L);
+        MatchRound current = MatchRound.builder().seq(2).openAt(NOW.minusHours(1)).closeAt(CLOSE_AT.plusHours(4)).publishAt(CLOSE_AT.plusHours(4).plusMinutes(10)).build();
+        current.open();
+        ReflectionTestUtils.setField(current, "id", 10L);
+        Application source = application("mine");
+        ReflectionTestUtils.setField(source, "id", 55L);
+        when(userService.getUser(USER_ID)).thenReturn(user);
+        when(matchRoundService.getCurrentRound()).thenReturn(current);
+        when(matchRoundService.findLatestPublishedRound()).thenReturn(Optional.of(published));
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, 9L)).thenReturn(Optional.of(source));
+        when(matchRepository.existsByApplication_Id(55L)).thenReturn(true);
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, 10L)).thenReturn(Optional.empty());
+        when(applicationRepository.existsByRound_IdAndInstagramId(10L, "mine")).thenReturn(false);
+        when(applicationRepository.saveAndFlush(any(Application.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        applicationService.rejoin(USER_ID);
+
+        ArgumentCaptor<Application> captor = ArgumentCaptor.forClass(Application.class);
+        verify(applicationRepository).saveAndFlush(captor.capture());
+        Application copy = captor.getValue();
+        assertThat(copy.getRound()).isSameAs(current);
+        assertThat(copy.getEntryType()).isEqualTo(EntryType.REJOIN);
+        assertThat(copy.getSourceApplication()).isSameAs(source);
+        assertThat(copy.getInstagramId()).isEqualTo("mine");
+        assertThat(copy.getTags()).isEqualTo(source.getTags());
+        assertThat(copy.getAgreedAt()).isEqualTo(source.getAgreedAt());
+    }
+
+    @Test
+    void 재참여는_이전_회차_매칭이_없으면_MATCH_NOT_FOUND이고_현재_회차_신청이_있으면_ALREADY_EXISTS다() {
+        MatchRound published = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(NOW.minusHours(2)).publishAt(NOW.minusHours(1)).build();
+        ReflectionTestUtils.setField(published, "id", 9L);
+        Application source = application("mine");
+        ReflectionTestUtils.setField(source, "id", 55L);
+        when(userService.getUser(USER_ID)).thenReturn(user);
+        when(matchRoundService.getCurrentRound()).thenReturn(round);
+        when(matchRoundService.findLatestPublishedRound()).thenReturn(Optional.of(published));
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, 9L)).thenReturn(Optional.of(source));
+        when(matchRepository.existsByApplication_Id(55L)).thenReturn(false).thenReturn(true);
+
+        assertError(() -> applicationService.rejoin(USER_ID), ErrorCode.MATCH_NOT_FOUND);
+
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, ROUND_ID)).thenReturn(Optional.of(application("carried")));
+        assertError(() -> applicationService.rejoin(USER_ID), ErrorCode.APPLICATION_ALREADY_EXISTS);
+    }
+
+    @Test
+    void 재참여는_현재_회차가_접수_중이_아니면_MATCH_ROUND_NOT_OPEN이고_발표_회차가_없으면_NOT_PUBLISHED다() {
+        when(userService.getUser(USER_ID)).thenReturn(user);
+        round.close();
+        when(matchRoundService.getCurrentRound()).thenReturn(round);
+        assertError(() -> applicationService.rejoin(USER_ID), ErrorCode.MATCH_ROUND_NOT_OPEN);
+
+        MatchRound open = MatchRound.builder().seq(2).openAt(NOW.minusHours(1)).closeAt(CLOSE_AT.plusHours(4)).publishAt(CLOSE_AT.plusHours(4).plusMinutes(10)).build();
+        open.open();
+        when(matchRoundService.getCurrentRound()).thenReturn(open);
+        when(matchRoundService.findLatestPublishedRound()).thenReturn(Optional.empty());
+        assertError(() -> applicationService.rejoin(USER_ID), ErrorCode.MATCH_RESULT_NOT_PUBLISHED);
     }
 
     private void givenOpenRoundAndUser() {

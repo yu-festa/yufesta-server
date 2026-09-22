@@ -315,7 +315,7 @@ denyAll     : anyRequest
 - 동의 없이는 저장 불가: `terms_version`, `privacy_version`, `age_confirmed=1`, `agreed_at` 기록(FR-MT-11·12).
 - `matching_blocked_at`이 있는 회원은 신청 거부(`USER_MATCHING_BLOCKED`).
 - **보고 싶은 공연(FR-MT-05)**: `slot.start_at >= round.publish_at`인 공연만 허용. 신청·수정 시 검증하고, 배치에서도 재검증해 위반 슬롯은 점수 계산에서 제외(타임테이블 변경 대비).
-- **이월 모델(FR-MT-03)**: 회차 발표 트랜잭션에서 미매칭 신청을 다음 회차 행으로 복사(`entry_type = CARRIED`, `source_application_id` = 원본, 태그 포함, `wanted_slot_id`는 FR-MT-05 조건을 만족할 때만 유지). 1회차 매칭자의 "2회차도 참여"도 같은 복사(`REJOIN`). 이미 직접 신청한 사용자는 `uk_app_user_round`로 건너뛴다. `join_next_round` 컬럼은 없다.
+- **이월 모델(FR-MT-03)**: 회차 발표 트랜잭션에서 미매칭 신청을 다음 회차 행으로 복사(`entry_type = CARRIED`, `source_application_id` = 원본, 태그 포함, `wanted_slot_id`는 FR-MT-05 조건을 만족할 때만 유지). 1회차 매칭자의 "2회차도 참여"도 같은 복사(`REJOIN`, `POST /api/v1/match/applications/rejoin`). 이미 직접 신청한 사용자는 `uk_app_user_round`로 건너뛴다. `join_next_round` 컬럼은 없다. 복사 후 사용자는 2회차 신청 수정 화면(`PATCH /applications/me`)에서 내용을 확인·수정한다. 프론트는 재참여 201 응답 직후와 이월 안내(FR-MT-35)에서 이 화면을 미리 채운 상태로 연다. 타임테이블 연동 시 복사되는 `wanted_slot_id`가 조건을 어기면 `null`로 비우고 응답에 재선택 필요 표시를 넣는다.
 - 배치 풀 = `round_id = 해당 회차 AND canceled_at IS NULL AND users.matching_blocked_at IS NULL`. 이전 회차를 조회하지 않는다.
 - 점수 = 공통 태그 × `match.weight.tag` + 같은 공연 × `match.weight.slot` + 나이대 동일 × `match.weight.age_same` 또는 인접 × `match.weight.age_adjacent`. 가중치는 `AppSettingReader`로 읽는다. 하드코딩 금지.
 - 제외: 차단 관계(양방향), 이전 회차에 이미 매칭된 쌍. 이성 간에만.

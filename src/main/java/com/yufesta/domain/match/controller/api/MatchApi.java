@@ -4,6 +4,7 @@ import com.yufesta.common.response.ApiResponse;
 import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
 import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
+import com.yufesta.domain.match.dto.response.MatchResultResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
@@ -71,4 +73,27 @@ public interface MatchApi {
     @DeleteMapping("/applications/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void cancelMyApplication(@Parameter(hidden = true) @AuthenticationPrincipal Long userId);
+
+    @Operation(
+            summary = "2회차 재참여",
+            description = "이전 회차에 매칭된 사람이 현재 회차에 다시 참여한다. 최근 발표 회차의 내 신청을 REJOIN으로 복사한다. "
+                    + "미매칭자는 발표 시 자동 이월되므로 대상이 아니다. 로그인 필요, X-XSRF-TOKEN 헤더 필요. FR-MT-03"
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "MATCH_NOT_FOUND(이전 회차 매칭 없음), APPLICATION_NOT_FOUND")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "MATCH_ROUND_NOT_OPEN, MATCH_RESULT_NOT_PUBLISHED, APPLICATION_ALREADY_EXISTS, APPLICATION_INSTAGRAM_DUPLICATE")
+    @PostMapping("/applications/rejoin")
+    ResponseEntity<ApiResponse<ApplicationResponse>> rejoin(@Parameter(hidden = true) @AuthenticationPrincipal Long userId);
+
+    @Operation(
+            summary = "내 매칭 결과",
+            description = "발표된 회차의 내 결과. roundSeq를 생략하면 가장 최근 발표 회차. 발표 전에는 409. "
+                    + "카드는 점수 높은 순이며 내가 신고한 상대는 제외된다. 로그인 필요. FR-MT-04·31·32·35·54"
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "APPLICATION_NOT_FOUND, MATCH_ROUND_NOT_FOUND")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "MATCH_RESULT_NOT_PUBLISHED")
+    @GetMapping("/results/me")
+    ApiResponse<MatchResultResponse> getMyResult(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @Parameter(description = "회차 번호(선택). 생략 시 최근 발표 회차") @RequestParam(required = false) Integer roundSeq
+    );
 }
