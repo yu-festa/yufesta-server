@@ -6,15 +6,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    # Hibernate가 테이블을 만든 뒤에 시드 SQL을 실행한다
-    defer-datasource-initialization: true
-
-  # dev 초기 데이터(db/dev/data.sql). 기본 mode는 embedded라 MySQL에서는 always가 필요하다
-  sql:
-    init:
-      mode: always
-      data-locations: classpath:db/dev/data.sql
+      # 스키마는 Flyway(db/migration)가 만든다. 엔티티와 어긋나면 기동 실패
+      ddl-auto: validate
 
   security:
     oauth2:

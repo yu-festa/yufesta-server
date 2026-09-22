@@ -8,6 +8,10 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
+  # 마이그레이션은 MySQL 문법이라 H2에서는 Hibernate가 스키마를 만든다
+  flyway:
+    enabled: false
+
   security:
     oauth2:
       client:

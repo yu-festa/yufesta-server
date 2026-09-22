@@ -7,7 +7,7 @@
 ## 0. 작업 순서
 
 1. 기능을 만들기 전에 `docs/srs.md`에서 해당 FR 번호를 찾아 읽는다.
-2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 `docs/erd.sql`·`docs/erd.md`를 함께 고친다(Flyway 도입 후에는 마이그레이션도). 새 테이블의 초기 데이터는 `db/dev/data.sql`에 추가한다.
+2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 새 `db/migration/V{n}__설명.sql`을 추가하고 `docs/erd.sql`·`docs/erd.md`를 같은 커밋에서 고친다. 새 테이블의 초기 데이터도 마이그레이션 INSERT로 넣고 `docs/erd.sql` 하단에 같은 내용을 둔다.
 3. 새 코드는 `common`, `domain/user`, `domain/auth`의 기존 스타일을 따른다. 충돌 시 이 문서 > 기존 코드.
 4. 변경 후 `./gradlew test` 통과. 컴파일 경고를 새로 만들지 않는다.
 5. 모호하면 구현하지 말고 질문한다. 추측으로 요구사항을 확장하지 않는다.
@@ -22,6 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
@@ -34,7 +35,7 @@ Boot 4에서 달라진 것. 기억이나 검색 결과에 있는 Boot 3 코드�
 - Jackson 3: `ObjectMapper`는 `tools.jackson.databind.ObjectMapper`. 어노테이션(`@JsonFormat`, `@JsonProperty`, `@JsonInclude`)은 그대로 `com.fasterxml.jackson.annotation`
 - Security: 람다 DSL만. `requestMatchers(...)`는 PathPattern 기반이며 `AntPathRequestMatcher`는 없다
 - `@Nullable`은 JSpecify(`org.jspecify.annotations.Nullable`)
-- Hibernate: 부울 컬럼 기본 매핑이 `bit`이므로 ERD의 `TINYINT(1)`과 맞추려면 `hibernate.type.preferred_boolean_jdbc_type=TINYINT` 설정이 필요하다(5장)
+- Hibernate: 부울 컬럼은 ERD의 `TINYINT(1)`. MySQL 드라이버가 `TINYINT(1)`을 BIT로 보고하므로 Hibernate 기본(BIT)이 `validate`와 맞는다. `preferred_boolean_jdbc_type=TINYINT`나 JDBC URL의 `tinyInt1isBit=false`를 넣으면 검증이 어긋난다(5장)
 
 ## 2. 실행·검증
 
@@ -50,7 +51,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
-- dev 초기 데이터: 기동 시 `db/dev/data.sql`이 `app_settings` 초기값을 넣는다(있는 행은 건너뜀). `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
+- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
 
@@ -237,13 +238,12 @@ public record NoticeResponse(Long id, String title, String body, boolean isBanne
 
 ## 5. 데이터·트랜잭션·시간
 
-**스키마 관리 (Flyway는 인스타팅 완료 후·인프라 작업 전에 도입)**
-- 도입 전까지: dev는 `ddl-auto: update`, prod는 `validate`. dev 초기 데이터는 `src/main/resources/db/dev/data.sql`(`INSERT IGNORE`, `spring.sql.init`이 dev 프로필에서만 실행). 엔티티가 ERD에서 벗어나면 `docs/erd.sql`을 같은 커밋에서 고친다.
-- 도입 시 아래를 적용한다.
-- `spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql` 추가(둘 다 Boot BOM 관리). `src/main/resources/db/migration/V1__init.sql`은 `docs/erd.sql`에서 만든다.
+**스키마 관리 (Flyway)**
+- `spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`(Boot BOM). `src/main/resources/db/migration/V1__init.sql`(스키마, `docs/erd.sql`과 동일)·`V2__initial_data.sql`(설정값 16행·회차 2행, `docs/erd.sql` 하단과 동일). 기동 시 자동 적용되며 prod도 같은 파일로 스키마를 만든다.
 - dev·prod 모두 `spring.jpa.hibernate.ddl-auto: validate`. `update`·`create`는 금지(테스트 프로필의 H2 `create-drop`만 예외, test 프로필은 `spring.flyway.enabled: false`).
-- 스키마 변경은 새 `V{n}__{설명}.sql`만 추가. 적용된 마이그레이션 파일은 수정하지 않는다.
-- `validate`가 통과하도록 필요한 설정: `spring.jpa.properties.hibernate.type.preferred_boolean_jdbc_type: TINYINT`(TINYINT(1) ↔ boolean), TEXT는 `columnDefinition`, enum 컬럼은 VARCHAR(ERD v1.2는 `gender`도 VARCHAR(1)). `CHAR` 타입은 쓰지 않는다.
+- 스키마 변경은 새 `V{n}__{설명}.sql`만 추가하고 `docs/erd.sql`·`docs/erd.md`를 같은 커밋에서 고친다. 적용된 마이그레이션 파일은 수정하지 않는다. 초기 데이터가 필요한 새 테이블도 마이그레이션 INSERT로 넣는다(`created_at`·`updated_at`은 `NOW()`로 명시. H2 테스트에는 DEFAULT가 없다).
+- `validate`가 보는 것은 컬럼 존재와 JDBC 타입 코드뿐이다(길이·기본값·인덱스는 안 봄). 부울은 Hibernate 기본(BIT)을 쓴다. 드라이버가 `TINYINT(1)`을 BIT로 보고하기 때문이며 `preferred_boolean_jdbc_type=TINYINT`·`tinyInt1isBit=false`는 금지. `TINYINT UNSIGNED` 정수 컬럼(`seq`, `assign_pass`)은 `columnDefinition`으로 맞춘다. TEXT는 `columnDefinition`, enum 컬럼은 VARCHAR(`gender`도 VARCHAR(1)). `CHAR` 타입은 쓰지 않는다.
+- Hibernate `update`로 만들어진 옛 로컬 DB는 Flyway가 "빈 스키마가 아님"으로 거부한다. `docker compose down -v` 후 다시 띄운다(로컬 데이터 초기화).
 
 **동시성**
 - 중복 방지는 "선검사 + DB 유니크 제약" 이중으로. 유니크 위반 `DataIntegrityViolationException`은 서비스에서 잡아 도메인 `CustomException`(409)으로 바꾼다. 선검사만 믿지 않는다(발표 직전 동시 신청).
@@ -423,7 +423,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
-8. Flyway 미도입 — 인스타팅 완료 후, 인프라 작업 전에 5장대로 도입(`V1__init.sql`은 그 시점의 `docs/erd.sql`에서 생성)
 9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
