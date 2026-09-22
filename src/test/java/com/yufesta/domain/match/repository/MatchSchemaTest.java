@@ -170,6 +170,31 @@ class MatchSchemaTest {
         assertThat(blockRepository.countValidReports(bob.getId(), BlockDecision.DISMISS)).isEqualTo(1);
     }
 
+    @Test
+    void 매칭_회원_쌍_조회와_매칭된_신청_id_조회와_회차_결과_삭제가_동작한다() {
+        MatchRound round2 = matchRoundRepository.save(MatchRound.builder()
+                .seq(2).openAt(NOW).closeAt(NOW.plusDays(3).plusHours(4)).publishAt(NOW.plusDays(3).plusHours(4).plusMinutes(10)).build());
+        Application a = applicationRepository.save(application(alice, "alice_insta"));
+        Application b = applicationRepository.save(application(bob, "bob_insta"));
+        matchRepository.save(match(a, b));
+        matchRepository.save(match(b, a));
+        matchRepository.flush();
+        em.clear();
+
+        assertThat(matchRepository.findMatchedUserIdPairsBeforeSeq(2))
+                .extracting(pair -> pair.userId(), pair -> pair.otherUserId())
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(alice.getId(), bob.getId()),
+                        org.assertj.core.groups.Tuple.tuple(bob.getId(), alice.getId()));
+        assertThat(matchRepository.findMatchedUserIdPairsBeforeSeq(1)).isEmpty();
+        assertThat(matchRepository.findMatchedApplicationIdsByRoundId(round.getId())).containsExactlyInAnyOrder(a.getId(), b.getId());
+        assertThat(matchRepository.findMatchedApplicationIdsByRoundId(round2.getId())).isEmpty();
+
+        assertThat(matchRepository.deleteAllByRoundId(round.getId())).isEqualTo(2);
+        assertThat(matchRepository.countByRound_Id(round.getId())).isZero();
+        assertThat(blockRepository.findAllUserIdPairs()).isEmpty();
+    }
+
     private long countTagRows(Long applicationId) {
         return ((Number) em.getEntityManager()
                 .createNativeQuery("select count(*) from application_tags where application_id = ?1")
