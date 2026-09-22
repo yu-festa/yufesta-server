@@ -33,6 +33,8 @@ spring:
             user-name-attribute: id
 
 app:
+  scheduler:
+    enabled: false
   auth:
     frontend-url: http://localhost:3000
     jwt:
