@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 
 /**
- * enum의 키 목록과 dev 시드(db/dev/data.sql)의 키가 서로 어긋나지 않도록 고정
+ * enum의 키 목록과 초기 데이터 마이그레이션(V2__initial_data.sql)의 키가 서로 어긋나지 않도록 고정
  */
 class SettingKeyTest {
 
@@ -21,8 +21,8 @@ class SettingKeyTest {
     private static final Pattern SEED_ROW = Pattern.compile("^\\s*\\('([a-z_.]+)'", Pattern.MULTILINE);
 
     @Test
-    void enum_키와_dev_시드의_키가_같다() throws IOException {
-        String seed = new ClassPathResource("db/dev/data.sql").getContentAsString(StandardCharsets.UTF_8);
+    void enum_키와_초기_데이터의_키가_같다() throws IOException {
+        String seed = new ClassPathResource("db/migration/V2__initial_data.sql").getContentAsString(StandardCharsets.UTF_8);
         Matcher matcher = SEED_ROW.matcher(seed);
         Set<String> seedKeys = new java.util.HashSet<>();
         while (matcher.find()) {

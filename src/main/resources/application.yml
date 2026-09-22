@@ -7,11 +7,9 @@ spring:
 
   jpa:
     open-in-view: false
-    properties:
-      hibernate:
-        # ERD의 TINYINT(1)과 맞춘다. 기본값 bit이면 validate 전환 때 불리언 컬럼이 전부 어긋난다
-        type:
-          preferred_boolean_jdbc_type: TINYINT
+    # 부울 컬럼은 ERD의 TINYINT(1). MySQL 드라이버가 TINYINT(1)을 BIT로 보고하므로(tinyInt1isBit 기본 true)
+    # Hibernate 기본 부울 타입(BIT)이 validate와 맞는다. preferred_boolean_jdbc_type=TINYINT를 주면 오히려 어긋난다.
+    # JDBC URL에 tinyInt1isBit=false를 넣지 말 것
 
 app:
   scheduler:

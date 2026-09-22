@@ -1,10 +1,10 @@
--- dev 전용 초기 데이터. application-dev.yml의 spring.sql.init이 기동 시 실행한다.
--- 출처: docs/erd.sql 초기값(ERD v1.2). INSERT IGNORE라 재기동해도 있는 행은 건너뛴다.
--- created_at·updated_at: Hibernate가 만든 테이블에는 DB 기본값이 없어 시드가 직접 NOW()를 넣는다.
--- admin.allowlist는 비워 둔다. STAFF로 로그인하려면 아래 SQL로 본인 계정을 넣는다.
---   UPDATE app_settings SET setting_value = 'KAKAO:<providerUserId>' WHERE setting_key = 'admin.allowlist';
+-- ============================================================
+-- V2: 초기 데이터. 앱이 기동에 필요로 하는 설정값과 회차 2행. docs/erd.sql 하단과 같은 내용을 유지한다.
+-- 운영 시각·운영자 허용 목록은 배포 후 운영자 API·SQL로 바꾼다.
+-- ============================================================
 
-INSERT IGNORE INTO `app_settings` (`setting_key`, `setting_value`, `description`, `created_at`, `updated_at`) VALUES
+-- 설정값 (AppSettingReader가 SettingKey 전부를 기대한다. 없으면 APP_SETTING_NOT_FOUND)
+INSERT INTO `app_settings` (`setting_key`, `setting_value`, `description`, `created_at`, `updated_at`) VALUES
   ('match.weight.tag',              '1',   '공통 태그 1개당 점수', NOW(), NOW()),
   ('match.weight.slot',             '2',   '같은 공연 선택 점수', NOW(), NOW()),
   ('match.weight.age_same',         '1',   '나이대 동일 점수', NOW(), NOW()),
@@ -20,9 +20,9 @@ INSERT IGNORE INTO `app_settings` (`setting_key`, `setting_value`, `description`
   ('ratelimit.cheer.anon_per_minute', '1', '응원 메시지 익명 키당 분당 작성 수', NOW(), NOW()),
   ('ratelimit.cheer.ip_per_minute', '10',  '응원 메시지 IP당 분당 작성 수', NOW(), NOW()),
   ('ratelimit.lostitem.per_minute', '1',   '분실물 회원당 분당 작성 수', NOW(), NOW()),
-  ('admin.allowlist',               '', '운영자로 승격할 소셜 계정(PROVIDER:id). 최초 로그인 시 role 부여', NOW(), NOW());
--- 초기 회차(SRS FR-MT-01 예시). 실제 시각은 운영자 API로 수정한다. close_at = publish_at - 10분
--- dev에서는 1회차를 OPEN으로 두어 바로 신청을 테스트할 수 있게 한다
-INSERT IGNORE INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
-  (1, '2026-09-25 00:00:00', '2026-10-02 15:50:00', '2026-10-02 16:00:00', 'OPEN', NOW(), NOW()),
+  ('admin.allowlist',               '',    '운영자로 승격할 소셜 계정(PROVIDER:id, 쉼표 구분). 최초 로그인 시 role 부여', NOW(), NOW());
+
+-- 초기 회차 (축제 2026-10-02. open_at 1회차 = 사전 오픈 시각, 실제 시각은 운영자 API로 수정. close_at = publish_at - 10분)
+INSERT INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
+  (1, '2026-09-25 00:00:00', '2026-10-02 15:50:00', '2026-10-02 16:00:00', 'SCHEDULED', NOW(), NOW()),
   (2, '2026-10-02 16:00:00', '2026-10-02 19:50:00', '2026-10-02 20:00:00', 'SCHEDULED', NOW(), NOW());

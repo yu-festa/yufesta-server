@@ -15,12 +15,13 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * dev 시드 SQL이 문법 오류 없이 실행되고, 두 번 실행해도 행이 늘지 않는지 H2(MySQL 모드)로 확인
+ * 초기 데이터 마이그레이션(V2)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
+ * V1은 MySQL 전용 문법이라 여기서 실행하지 않고, 스키마는 Hibernate가 엔티티로 만든다
  */
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class DevSeedDataTest {
+class InitialDataMigrationTest {
 
     @Autowired
     private DataSource dataSource;
@@ -32,11 +33,8 @@ class DevSeedDataTest {
     private MatchRoundRepository matchRoundRepository;
 
     @Test
-    void 시드는_설정_16행과_회차_2행을_넣고_다시_실행해도_중복되지_않는다() {
-        ResourceDatabasePopulator populator = new ResourceDatabasePopulator(new ClassPathResource("db/dev/data.sql"));
-
-        populator.execute(dataSource);
-        populator.execute(dataSource);
+    void 초기_데이터는_설정_16행과_회차_2행을_넣는다() {
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V2__initial_data.sql")).execute(dataSource);
 
         assertThat(appSettingRepository.count()).isEqualTo(16);
         assertThat(appSettingRepository.findById("admin.allowlist"))
@@ -50,7 +48,7 @@ class DevSeedDataTest {
         assertThat(matchRoundRepository.findAllByOrderBySeqAsc())
                 .extracting(round -> round.getSeq(), round -> round.getStatus())
                 .containsExactly(
-                        org.assertj.core.groups.Tuple.tuple(1, RoundStatus.OPEN),
+                        org.assertj.core.groups.Tuple.tuple(1, RoundStatus.SCHEDULED),
                         org.assertj.core.groups.Tuple.tuple(2, RoundStatus.SCHEDULED)
                 );
     }
