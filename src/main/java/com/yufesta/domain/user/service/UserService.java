@@ -31,6 +31,17 @@ public class UserService {
     }
 
     /**
+     * 회원 행을 PESSIMISTIC_WRITE로 잠그고 반환한다. 집계 후 상태를 바꾸는 작업(신고 누적 제재)을 한 줄로 세우는 용도(§5).
+     * 쓰기 트랜잭션 안에서만 호출한다.
+     * @throws CustomException USER_NOT_FOUND
+     */
+    @Transactional
+    public User getUserForUpdate(Long userId) {
+        return userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
      * 회원의 역할을 조회한다.
      * @throws CustomException USER_NOT_FOUND
      */

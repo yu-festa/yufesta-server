@@ -15,20 +15,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
+import com.yufesta.domain.match.dto.request.ReportMatchRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
 import com.yufesta.domain.match.dto.response.LastResultResponse;
+import com.yufesta.domain.match.dto.response.MatchReportResponse;
 import com.yufesta.domain.match.dto.response.MatchResultResponse;
 import com.yufesta.domain.match.dto.response.MatchRoundResponse;
 import com.yufesta.domain.match.dto.response.PartnerCardResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MySummaryResponse;
 import com.yufesta.domain.match.enums.AgeBand;
+import com.yufesta.domain.match.enums.BlockReason;
 import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.Gender;
 import com.yufesta.domain.match.enums.MatchResultStatus;
 import com.yufesta.domain.match.enums.MatchTag;
 import com.yufesta.domain.match.enums.RoundStatus;
 import com.yufesta.domain.match.service.ApplicationService;
+import com.yufesta.domain.match.service.MatchReportService;
 import com.yufesta.domain.match.service.MatchResultService;
 import com.yufesta.domain.match.service.MatchSummaryService;
 import com.yufesta.support.ControllerTestSupport;
@@ -53,6 +57,9 @@ class MatchControllerTest extends ControllerTestSupport {
 
     @MockitoBean
     private MatchResultService matchResultService;
+
+    @MockitoBean
+    private MatchReportService matchReportService;
 
     @Test
     void 비로그인도_홈_블록을_조회하고_시각은_오프셋_없이_내려간다() throws Exception {
@@ -202,6 +209,57 @@ class MatchControllerTest extends ControllerTestSupport {
                 .ageBand(AgeBand.A22_24).tags(List.of(MatchTag.CAFE, MatchTag.MUSIC)).intro("같이 공연 봐요")
                 .entryType(EntryType.NEW).createdAt(NOW)
                 .build();
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 매칭_상대를_신고하면_201이고_대상_식별_정보가_없다() throws Exception {
+        when(matchReportService.report(eq(7L), any(ReportMatchRequest.class))).thenReturn(
+                MatchReportResponse.builder().id(5L).matchId(77L).reason(BlockReason.FAKE).createdAt(NOW).build());
+
+        mockMvc.perform(post("/api/v1/match/reports").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"matchId\": 77, \"reason\": \"FAKE\", \"detail\": \"프로필과 달라요\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(5))
+                .andExpect(jsonPath("$.data.matchId").value(77))
+                .andExpect(jsonPath("$.data.reason").value("FAKE"))
+                .andExpect(jsonPath("$.data.targetUserId").doesNotExist());
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 신고_사유가_없거나_상세가_길면_400이다() throws Exception {
+        mockMvc.perform(post("/api/v1/match/reports").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"matchId\": 77, \"detail\": \"" + "가".repeat(501) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"))
+                .andExpect(jsonPath("$.errors[*].field").value(
+                        org.hamcrest.Matchers.containsInAnyOrder("reason", "detail")));
+
+        verify(matchReportService, org.mockito.Mockito.never()).report(any(), any());
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 같은_상대_재신고는_409다() throws Exception {
+        when(matchReportService.report(eq(7L), any(ReportMatchRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.BLOCK_ALREADY_EXISTS));
+
+        mockMvc.perform(post("/api/v1/match/reports").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"matchId\": 77, \"reason\": \"OTHER\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("BLOCK_ALREADY_EXISTS"));
+    }
+
+    @Test
+    void 비로그인_신고는_401이다() throws Exception {
+        mockMvc.perform(post("/api/v1/match/reports").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"matchId\": 77, \"reason\": \"OTHER\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     private static MatchSummaryResponse summary(MySummaryResponse my) {

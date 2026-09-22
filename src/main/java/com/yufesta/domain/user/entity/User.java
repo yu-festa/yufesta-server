@@ -69,4 +69,18 @@ public class User extends BaseTimeEntity {
     public void recordLogin(LocalDateTime now) {
         this.lastLoginAt = now;
     }
+
+    public boolean isMatchingBlocked() {
+        return matchingBlockedAt != null;
+    }
+
+    // 신고 누적 제재(FR-MT-41). 이후 신청·재참여가 USER_MATCHING_BLOCKED로 거부된다
+    public void blockMatching(LocalDateTime now) {
+        this.matchingBlockedAt = now;
+    }
+
+    // 운영자 검토로 제재가 취소될 때(FR-MT-42). 이미 삭제된 신청은 되살리지 않는다
+    public void unblockMatching() {
+        this.matchingBlockedAt = null;
+    }
 }
