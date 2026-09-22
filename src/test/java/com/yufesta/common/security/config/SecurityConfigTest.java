@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yufesta.domain.match.dto.response.AdminMatchRoundResponse;
+import com.yufesta.domain.match.enums.RoundStatus;
+import com.yufesta.domain.match.service.MatchRoundBatchService;
 import com.yufesta.domain.user.enums.UserRole;
 import com.yufesta.support.TestEndpointController;
 import com.yufesta.support.WithMockLoginUser;
@@ -22,6 +25,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -34,6 +38,10 @@ class SecurityConfigTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    // 발표 경로는 실제 AdminMatchController가 처리하므로 서비스만 mock으로 대체한다
+    @MockitoBean
+    private MatchRoundBatchService matchRoundBatchService;
 
     @Test
     void 공개_읽기_API는_비로그인으로_접근할_수_있다() throws Exception {
@@ -90,6 +98,9 @@ class SecurityConfigTest {
     @Test
     @WithMockLoginUser(role = UserRole.OWNER)
     void OWNER는_발표와_설정에_접근한다() throws Exception {
+        org.mockito.Mockito.when(matchRoundBatchService.publish(1L))
+                .thenReturn(AdminMatchRoundResponse.builder().id(1L).seq(1).status(RoundStatus.PUBLISHED).build());
+
         mockMvc.perform(post("/api/v1/admin/match/rounds/1/publish").with(csrf()))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/admin/settings/ping"))

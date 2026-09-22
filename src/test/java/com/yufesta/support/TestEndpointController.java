@@ -54,11 +54,6 @@ public class TestEndpointController {
         return "ok";
     }
 
-    @PostMapping("/api/v1/admin/match/rounds/{id}/publish")
-    public String ownerPublish() {
-        return "ok";
-    }
-
     @GetMapping("/api/v1/admin/settings/ping")
     public String ownerSettings() {
         return "ok";

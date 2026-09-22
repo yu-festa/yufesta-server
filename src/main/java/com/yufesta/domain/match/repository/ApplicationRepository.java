@@ -14,6 +14,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     Optional<Application> findByUser_IdAndRound_Id(Long userId, Long roundId);
 
+    // 이월 복사 전 선검사: 이미 다음 회차에 신청(취소 포함)이 있으면 uk_app_user_round에 걸리므로 건너뛴다
+    boolean existsByUser_IdAndRound_Id(Long userId, Long roundId);
+
     long countByRound_IdAndCanceledAtIsNull(Long roundId);
 
     // 유니크 제약이 취소 행까지 포함하므로 선검사도 취소 여부를 보지 않는다
