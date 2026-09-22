@@ -324,7 +324,7 @@ denyAll     : anyRequest
 - 발표 전에는 `matches`가 있어도 API가 절대 반환하지 않는다. 기준은 `match_rounds.published_at IS NOT NULL`(FR-MT-04). 결과는 본인 것만(FR-MT-31), 카드는 점수 내림차순.
 - 매칭 엔진은 스프링에 의존하지 않는 순수 클래스(`MatchingEngine`)로 만들고 단위 테스트로 성비·차단·이전 회차·N 상한 케이스를 고정한다. 500명 배치 30초 이내(NFR-PF-03).
 - 마감·발표 스케줄: `close_at`에 상태 CLOSED + 배치 실행 + `executed_at`, `publish_at`에 PUBLISHED + `published_at`. 실패 시 운영자 수동 실행 API 필수(NFR-AV-03). 다중 인스턴스에서 한 번만 실행(5장).
-- 신고(`blocks`): 신고자–대상 쌍 1건(`uk_blocks_pair`). 같은 트랜잭션에서 대상 신고 수 ≥ `report.block_threshold`면 `users.matching_blocked_at` 설정 + 대상의 현재 회차 신청 삭제. 신고자 결과 화면에서는 대상 카드를 즉시 제외. 신고 사실을 대상에게 노출하지 않는다.
+- 신고(`blocks`): 신고자–대상 쌍 1건(`uk_blocks_pair`). 같은 트랜잭션에서 대상 신고 수 ≥ `report.block_threshold`면 `users.matching_blocked_at` 설정 + 대상의 현재 회차 신청 삭제. 신고자 결과 화면에서는 대상 카드를 즉시 제외. 신고 사실을 대상에게 노출하지 않는다. 제재 판정은 `MatchReportService.applySanction` 한 곳: 운영자 `CONFIRM`이 있거나 유효 신고 수(`DISMISS` 제외) ≥ 임계면 차단, 아니면 해제(FR-MT-42). 대상 회원 행을 `PESSIMISTIC_WRITE`로 먼저 잠그고 `READ_COMMITTED`로 집계한다. 현재 회차가 `CLOSED`(배치 후)면 `matches`가 참조하므로 신청을 지우지 않고 풀 조건(`matching_blocked_at IS NULL`)이 거른다. 삭제된 신청은 해제돼도 복구하지 않는다.
 - 홈 블록: `GET /api/v1/match/summary` 한 번으로 `serverNow`, 현재·다음 회차(seq·status·openAt·closeAt·publishAt), 신청자 수, 로그인 시 내 상태(NONE/APPLIED/MATCHED/UNMATCHED, 다음 회차 신청 존재 여부).
 - SSE는 매칭 상태 화면만(`GET /api/v1/sse/match`). 이벤트: `applicant-count`, `round-closed`, `round-published`(로그인 연결에만). keepalive 25초. 다중 인스턴스 팬아웃은 Redis Pub/Sub. 발표 이벤트는 "결과를 다시 조회하라"는 신호만 보내고 결과 데이터를 SSE로 싣지 않는다.
 

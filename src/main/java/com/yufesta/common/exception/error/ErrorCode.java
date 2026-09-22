@@ -44,7 +44,8 @@ public enum ErrorCode {
     USER_MATCHING_BLOCKED(HttpStatus.FORBIDDEN, "USER_MATCHING_BLOCKED", "인스타팅 참여가 제한된 계정이에요."),
     MATCH_RESULT_NOT_PUBLISHED(HttpStatus.CONFLICT, "MATCH_RESULT_NOT_PUBLISHED", "아직 결과 발표 전이에요."),
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_NOT_FOUND", "매칭 결과를 찾을 수 없습니다."),
-    BLOCK_ALREADY_EXISTS(HttpStatus.CONFLICT, "BLOCK_ALREADY_EXISTS", "이미 신고한 상대예요.");
+    BLOCK_ALREADY_EXISTS(HttpStatus.CONFLICT, "BLOCK_ALREADY_EXISTS", "이미 신고한 상대예요."),
+    BLOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "BLOCK_NOT_FOUND", "신고 내역을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
