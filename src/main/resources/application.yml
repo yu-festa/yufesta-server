@@ -13,6 +13,12 @@ spring:
         type:
           preferred_boolean_jdbc_type: TINYINT
 
+app:
+  scheduler:
+    # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
+    enabled: ${SCHEDULER_ENABLED:true}
+    round-tick: PT10S
+
 management:
   endpoints:
     web:

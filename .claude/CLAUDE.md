@@ -72,6 +72,7 @@ com.yufesta
       ├─ repository
       ├─ entity
       ├─ enums
+      ├─ scheduler              @Scheduled 진입점(match의 RoundScheduler). 시각 판단만 하고 전이는 서비스를 부른다
       └─ dto
          ├─ request              *Request (record)
          └─ response             *Response (record)
@@ -248,7 +249,7 @@ public record NoticeResponse(Long id, String title, String body, boolean isBanne
 - 중복 방지는 "선검사 + DB 유니크 제약" 이중으로. 유니크 위반 `DataIntegrityViolationException`은 서비스에서 잡아 도메인 `CustomException`(409)으로 바꾼다. 선검사만 믿지 않는다(발표 직전 동시 신청).
 - 상태 전이(회차 open→closed→published, 신고 누적 제재)는 `@Lock(LockModeType.PESSIMISTIC_WRITE)` 조회 후 변경하거나, `UPDATE ... WHERE status = :expected` 조건부 갱신으로 원자적으로 처리한다.
 - 카운터(`report_count`)는 `UPDATE ... SET report_count = report_count + 1`로 증가시킨다. 읽고 더해서 저장하지 않는다.
-- 스케줄 작업은 인스턴스가 2개 이상이어도 한 번만 실행되어야 한다. Redis 락(SET NX + TTL) 또는 ShedLock. 작업은 멱등하게(`executed_at`이 있으면 스킵).
+- 스케줄 작업은 인스턴스가 2개 이상이어도 한 번만 실행되어야 한다. 회차 전이는 서비스의 회차 행 `PESSIMISTIC_WRITE` 잠금 + 상태 전이 검사(`MatchRound.transition`)가 이를 보장하므로 분산 락 없이 `@Scheduled`만 쓴다. 늦게 온 인스턴스는 `MATCH_ROUND_INVALID_STATUS`를 받고 건너뛴다. 작업은 멱등하게(`executed_at`·`published_at`이 있으면 스킵). 분산 락(ShedLock·Redis SET NX·Redisson)은 헛수고 한 번을 줄일 뿐 정확성에 기여하지 않아 도입하지 않았다(13장 1).
 
 **시간 (타임존 사고 방지)**
 - `ClockConfig`에 `Clock.system(ZoneId.of("Asia/Seoul"))` 빈. 서비스는 `Clock` 주입. 테스트는 `Clock.fixed(...)`.
@@ -323,7 +324,7 @@ denyAll     : anyRequest
 - `matches`는 방향성 2행(A→B, B→A) 저장. 결과 조회는 `application_id = 내 신청` 한 번으로.
 - 발표 전에는 `matches`가 있어도 API가 절대 반환하지 않는다. 기준은 `match_rounds.published_at IS NOT NULL`(FR-MT-04). 결과는 본인 것만(FR-MT-31), 카드는 점수 내림차순.
 - 매칭 엔진은 스프링에 의존하지 않는 순수 클래스(`MatchingEngine`)로 만들고 단위 테스트로 성비·차단·이전 회차·N 상한 케이스를 고정한다. 500명 배치 30초 이내(NFR-PF-03).
-- 마감·발표 스케줄: `close_at`에 상태 CLOSED + 배치 실행 + `executed_at`, `publish_at`에 PUBLISHED + `published_at`. 실패 시 운영자 수동 실행 API 필수(NFR-AV-03). 다중 인스턴스에서 한 번만 실행(5장).
+- 마감·발표 스케줄: `close_at`에 상태 CLOSED + 배치 실행 + `executed_at`, `publish_at`에 PUBLISHED + `published_at`. 실패 시 운영자 수동 실행 API 필수(NFR-AV-03). 다중 인스턴스에서 한 번만 실행(5장). 구현은 `RoundScheduler`: 10초마다 seq 순으로 시각이 지난 첫 단계 하나만 실행(한 tick에 한 단계, 발표가 다음 회차를 열기 때문). 실패는 로그만 남기고 다음 tick이 재시도. `app.scheduler.enabled`(test 프로필 false, 로컬 `SCHEDULER_ENABLED`)로 끈다.
 - 신고(`blocks`): 신고자–대상 쌍 1건(`uk_blocks_pair`). 같은 트랜잭션에서 대상 신고 수 ≥ `report.block_threshold`면 `users.matching_blocked_at` 설정 + 대상의 현재 회차 신청 삭제. 신고자 결과 화면에서는 대상 카드를 즉시 제외. 신고 사실을 대상에게 노출하지 않는다. 제재 판정은 `MatchReportService.applySanction` 한 곳: 운영자 `CONFIRM`이 있거나 유효 신고 수(`DISMISS` 제외) ≥ 임계면 차단, 아니면 해제(FR-MT-42). 대상 회원 행을 `PESSIMISTIC_WRITE`로 먼저 잠그고 `READ_COMMITTED`로 집계한다. 현재 회차가 `CLOSED`(배치 후)면 `matches`가 참조하므로 신청을 지우지 않고 풀 조건(`matching_blocked_at IS NULL`)이 거른다. 삭제된 신청은 해제돼도 복구하지 않는다.
 - 홈 블록: `GET /api/v1/match/summary` 한 번으로 `serverNow`, 현재·다음 회차(seq·status·openAt·closeAt·publishAt), 신청자 수, 로그인 시 내 상태(NONE/APPLIED/MATCHED/UNMATCHED, 다음 회차 신청 존재 여부).
 - SSE는 매칭 상태 화면만(`GET /api/v1/sse/match`). 이벤트: `applicant-count`, `round-closed`, `round-published`(로그인 연결에만). keepalive 25초. 다중 인스턴스 팬아웃은 Redis Pub/Sub. 발표 이벤트는 "결과를 다시 조회하라"는 신호만 보내고 결과 데이터를 SSE로 싣지 않는다.
@@ -423,7 +424,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
 8. Flyway 미도입 — 인스타팅 완료 후, 인프라 작업 전에 5장대로 도입(`V1__init.sql`은 그 시점의 `docs/erd.sql`에서 생성)
-9. Redis 없음(SSE 팬아웃·속도 제한·스케줄 락) — compose에 `redis:7` 추가, `RedisConfig`
+9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
@@ -435,9 +436,9 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 두 가지 규칙
 - **미리 구현하지 않는다.** 요청받지 않으면 이 항목들을 선제 도입하지 않는다. 지금 필요한 건 단순한 구현 하나다.
-- **갈아끼울 수 있게 만든다.** 아래 항목이 나중에 들어올 자리는 인터페이스 하나 또는 클래스 하나 뒤에 둔다. 예: 회차 이벤트 발행은 `RoundEventPublisher`(지금 구현은 Redis Pub/Sub 하나), 필터 외부 호출은 `ModerationClient`(지금은 OpenAI 하나), 배치 트리거는 `RoundScheduler`(지금은 `@Scheduled` + Redis 락), 매칭 계산은 순수 클래스 `MatchingEngine`. 추상화는 이 정도까지만 하고 구현체를 두 개 만들지 않는다.
+- **갈아끼울 수 있게 만든다.** 아래 항목이 나중에 들어올 자리는 인터페이스 하나 또는 클래스 하나 뒤에 둔다. 예: 회차 이벤트 발행은 `RoundEventPublisher`(지금 구현은 Redis Pub/Sub 하나), 필터 외부 호출은 `ModerationClient`(지금은 OpenAI 하나), 배치 트리거는 `RoundScheduler`(지금은 `@Scheduled` + DB 상태 전이, 락 없음), 매칭 계산은 순수 클래스 `MatchingEngine`. 추상화는 이 정도까지만 하고 구현체를 두 개 만들지 않는다.
 
-1. **회차 배치 트리거**: Redis 락 + `@Scheduled` → EventBridge Scheduler → SQS → 컨슈머. 정확히 한 번 실행, 가시성 타임아웃 기반 재시도, DLQ. 발표 시각 배치 실패(NFR-AV-03)를 사람 개입 없이 복구.
+1. **회차 배치 트리거**: `@Scheduled` + DB 상태 전이(락 없음) → EventBridge Scheduler → SQS → 컨슈머. 정확히 한 번 실행, 가시성 타임아웃 기반 재시도, DLQ. 발표 시각 배치 실패(NFR-AV-03)를 사람 개입 없이 복구. 분산 락(ShedLock JDBC·Redis SET NX·Redisson)은 비교 후 보류: 행 잠금 + 전이 검사가 이미 정확히 한 번을 보장해 늦은 인스턴스의 대기 1회만 줄인다.
 2. **발표 이벤트 팬아웃**: Redis Pub/Sub → Redis Streams 또는 SNS+SQS. 연결이 끊긴 클라이언트의 `Last-Event-ID` 재전송(SRS 4.3)과 이벤트 유실 방지.
 3. **Outbox 패턴**: 매칭 결과 커밋과 발표 이벤트 발행을 한 트랜잭션에 묶기. 결과는 저장됐는데 SSE가 안 나가는 불일치 제거.
 4. **결과 조회 프리워밍**: 배치 직후 결과 카드를 Redis에 저장해 두고 발표 순간 캐시에서 응답. 발표 직후 1,000명 동시 조회 p95 1초(NFR-PF-01)를 DB 부하 없이 달성.
