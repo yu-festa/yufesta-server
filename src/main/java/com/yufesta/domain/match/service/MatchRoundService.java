@@ -50,6 +50,15 @@ public class MatchRoundService {
     }
 
     /**
+     * 회차 번호로 회차를 조회한다.
+     * @throws CustomException MATCH_ROUND_NOT_FOUND
+     */
+    public MatchRound getRoundBySeq(int seq) {
+        return matchRoundRepository.findBySeq(seq)
+                .orElseThrow(() -> new CustomException(ErrorCode.MATCH_ROUND_NOT_FOUND));
+    }
+
+    /**
      * id로 회차를 조회한다.
      * @throws CustomException MATCH_ROUND_NOT_FOUND
      */

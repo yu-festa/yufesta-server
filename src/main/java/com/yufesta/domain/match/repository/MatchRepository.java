@@ -13,10 +13,11 @@ import org.springframework.data.repository.query.Param;
  */
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
-    // 결과 카드용: 상대 신청과 태그까지 한 번에, 점수 내림차순(FR-MT-32)
+    // 결과 카드용: 상대 신청·회원·태그까지 한 번에, 점수 내림차순(FR-MT-32). 회원은 신고 제외 판정에 쓴다
     @Query("""
             select distinct m from Match m
             join fetch m.partnerApplication p
+            join fetch p.user
             left join fetch p.tags
             where m.application.id = :applicationId
             order by m.score desc, m.id asc
