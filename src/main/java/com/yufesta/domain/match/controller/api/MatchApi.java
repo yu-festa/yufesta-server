@@ -2,8 +2,10 @@ package com.yufesta.domain.match.controller.api;
 
 import com.yufesta.common.response.ApiResponse;
 import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
+import com.yufesta.domain.match.dto.request.ReportMatchRequest;
 import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
+import com.yufesta.domain.match.dto.response.MatchReportResponse;
 import com.yufesta.domain.match.dto.response.MatchResultResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
@@ -95,5 +97,19 @@ public interface MatchApi {
     ApiResponse<MatchResultResponse> getMyResult(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @Parameter(description = "회차 번호(선택). 생략 시 최근 발표 회차") @RequestParam(required = false) Integer roundSeq
+    );
+
+    @Operation(
+            summary = "매칭 상대 신고",
+            description = "결과 카드의 matchId로 상대를 신고한다. 즉시 내 결과에서 그 카드가 빠지고 이후 회차에서 다시 매칭되지 않는다. "
+                    + "대상의 신고가 누적 기준에 도달하면 서버가 제재하며, 상대에게는 알리지 않는다. 발표 전에는 불가. "
+                    + "로그인 필요, X-XSRF-TOKEN 헤더 필요. FR-MT-40·41"
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "MATCH_NOT_FOUND(내 결과가 아니거나 없음)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "MATCH_RESULT_NOT_PUBLISHED, BLOCK_ALREADY_EXISTS")
+    @PostMapping("/reports")
+    ResponseEntity<ApiResponse<MatchReportResponse>> report(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody ReportMatchRequest request
     );
 }

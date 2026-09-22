@@ -3,12 +3,15 @@ package com.yufesta.domain.match.controller;
 import com.yufesta.common.response.ApiResponse;
 import com.yufesta.domain.match.controller.api.MatchApi;
 import com.yufesta.domain.match.dto.request.ApplyMatchRequest;
+import com.yufesta.domain.match.dto.request.ReportMatchRequest;
 import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
+import com.yufesta.domain.match.dto.response.MatchReportResponse;
 import com.yufesta.domain.match.dto.response.MatchResultResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
 import com.yufesta.domain.match.service.ApplicationService;
+import com.yufesta.domain.match.service.MatchReportService;
 import com.yufesta.domain.match.service.MatchResultService;
 import com.yufesta.domain.match.service.MatchSummaryService;
 import java.util.List;
@@ -25,15 +28,18 @@ public class MatchController implements MatchApi {
     private final MatchSummaryService matchSummaryService;
     private final ApplicationService applicationService;
     private final MatchResultService matchResultService;
+    private final MatchReportService matchReportService;
 
     public MatchController(
             MatchSummaryService matchSummaryService,
             ApplicationService applicationService,
-            MatchResultService matchResultService
+            MatchResultService matchResultService,
+            MatchReportService matchReportService
     ) {
         this.matchSummaryService = matchSummaryService;
         this.applicationService = applicationService;
         this.matchResultService = matchResultService;
+        this.matchReportService = matchReportService;
     }
 
     @Override
@@ -78,5 +84,12 @@ public class MatchController implements MatchApi {
     @Override
     public ApiResponse<MatchResultResponse> getMyResult(Long userId, Integer roundSeq) {
         return ApiResponse.success(matchResultService.getMyResult(userId, roundSeq));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<MatchReportResponse>> report(Long userId, ReportMatchRequest request) {
+        MatchReportResponse response = matchReportService.report(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(HttpStatus.CREATED, "신고가 접수되었어요.", response));
     }
 }
