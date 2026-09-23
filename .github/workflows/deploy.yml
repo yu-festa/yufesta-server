@@ -1,0 +1,88 @@
+# main에 푸시(=develop→main PR 병합)되면 테스트 → 이미지 빌드·ECR push → ECS 롤링 재배포 → 헬스 확인.
+# AWS 인증은 OIDC로 역할을 잠시 빌리므로 저장소에 액세스 키가 없다. 역할 ARN은 저장소 Variables의 AWS_DEPLOY_ROLE_ARN
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 배포가 겹치지 않게 한 번에 하나만. 진행 중인 배포는 취소하지 않는다
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: yufesta-api
+  ECS_CLUSTER: yufesta-cluster
+  ECS_SERVICE: yufesta-api
+  HEALTH_URL: https://api.yufesta.com/actuator/health
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew test --no-daemon
+
+  deploy:
+    needs: test
+    # ARM 러너: Fargate ARM64와 같은 아키텍처라 QEMU 없이 네이티브로 빌드한다(공개 저장소 무료)
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write   # OIDC 토큰 발급
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS 자격 증명 (OIDC로 yufesta-github-deploy 역할 assume)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ECR 로그인
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      # latest는 ECS가 실행하는 태그, sha 태그는 롤백용(README 3절)
+      - name: 이미지 빌드·push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 태스크 정의는 Terraform이 관리하므로 새 리비전 없이 latest를 다시 받아 롤링 배포한다
+      - name: ECS 재배포
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --no-cli-pager >/dev/null
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+
+      # 서킷 브레이커가 롤백했다면 services-stable은 통과해도 새 코드가 아니다. 배포 상태까지 확인
+      - name: 배포 결과 확인
+        run: |
+          STATE=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].deployments[0].rolloutState' --output text)
+          echo "rolloutState=$STATE"
+          test "$STATE" = "COMPLETED"
+          for i in $(seq 1 10); do
+            curl -fsS "$HEALTH_URL" && exit 0
+            sleep 6
+          done
+          echo "헬스체크 실패" && exit 1

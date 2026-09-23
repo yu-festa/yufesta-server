@@ -42,6 +42,10 @@ resource "aws_ecs_task_definition" "api" {
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  # 리비전을 바꿀 때 옛 리비전을 Deregister하지 않는다. 이 API는 리소스 ARN 없이 호출돼 배포자 정책의 태그 Deny에 걸리고,
+  # 남은 리비전은 비용이 없다
+  skip_destroy = true
+
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = var.cpu_architecture
