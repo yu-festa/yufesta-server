@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.yufesta.common.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.yufesta.domain.match.dto.response.AdminMatchRoundResponse;
 import com.yufesta.domain.match.enums.RoundStatus;
 import com.yufesta.domain.match.service.MatchRoundBatchService;
@@ -28,7 +31,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "server.forward-headers-strategy=framework",
+        "app.auth.allowed-origins=http://localhost:3000,https://yufesta-web.vercel.app"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestEndpointController.class)
@@ -146,5 +152,29 @@ class SecurityConfigTest {
                         .header(HttpHeaders.ORIGIN, "https://evil.example")
                         .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 프록시의_https_헤더로_OAuth_redirect_uri를_만들고_상태는_세션이_아니라_서명_쿠키에_둔다() throws Exception {
+        mockMvc.perform(get("/oauth2/authorization/kakao")
+                        .param("redirect", "/match/apply")
+                        .header("X-Forwarded-Proto", "https")
+                        .header("X-Forwarded-Host", "api.yufesta.com"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string(HttpHeaders.LOCATION,
+                        org.hamcrest.Matchers.containsString("redirect_uri=https://api.yufesta.com/login/oauth2/code/kakao")))
+                .andExpect(result -> assertThat(result.getRequest().getSession(false)).isNull())
+                .andExpect(result -> assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+                        .anyMatch(cookie -> cookie.startsWith(CookieOAuth2AuthorizationRequestRepository.COOKIE_NAME + "=")
+                                && cookie.contains("HttpOnly") && cookie.contains("Max-Age=300")));
+    }
+
+    @Test
+    void 허용_목록의_Vercel_오리진도_preflight를_통과한다() throws Exception {
+        mockMvc.perform(options("/api/v1/ping")
+                        .header(HttpHeaders.ORIGIN, "https://yufesta-web.vercel.app")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://yufesta-web.vercel.app"));
     }
 }

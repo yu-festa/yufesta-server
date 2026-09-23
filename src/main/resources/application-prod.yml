@@ -1,3 +1,8 @@
+# ALB가 TLS를 종료하고 HTTP로 전달하므로 X-Forwarded-Proto/Host로 https 기준 URL(OAuth redirect-uri 등)을 만든다.
+# 태스크는 ALB 보안 그룹에서만 접근되므로 헤더 위조 경로가 없다. dev에는 두지 않는다
+server:
+  forward-headers-strategy: framework
+
 spring:
   datasource:
     url: ${DB_URL}
@@ -41,6 +46,7 @@ springdoc:
 app:
   auth:
     frontend-url: ${FRONTEND_URL}
+    allowed-origins: ${ALLOWED_ORIGINS:}
     jwt:
       secret: ${JWT_SECRET}
       access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:PT2H}
