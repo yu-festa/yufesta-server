@@ -37,11 +37,16 @@ spring:
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
 
+# 운영 Swagger는 프론트 연동 기간에만 켠다(Terraform swagger_enabled). 축제 전 false로 apply
 springdoc:
   api-docs:
-    enabled: false
+    enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
-    enabled: false
+    enabled: ${SWAGGER_ENABLED:false}
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
 
 app:
   auth:

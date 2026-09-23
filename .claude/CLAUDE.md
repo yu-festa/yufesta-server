@@ -47,7 +47,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 ./gradlew build
 ```
 
-- Swagger: http://localhost:8080/swagger-ui/index.html , 스펙 `/v3/api-docs`
+- Swagger: http://localhost:8080/swagger-ui/index.html , 스펙 `/v3/api-docs/public`·`/v3/api-docs/admin`. 운영은 `SWAGGER_ENABLED`(Terraform `swagger_enabled`)로 연동 기간에만 켜고 축제 전 끈다. `OpenApiConfig`가 경로·메서드로 §7 규칙을 흉내 내 로그인 표시(cookieAuth)와 공통 오류를 붙이므로 인터페이스에는 도메인 고유 오류만 적는다
 - 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
@@ -427,7 +427,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
 9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
-10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
 14. `RequestLoggingFilter`에 MDC `userId`·`X-Request-Id` 없음
