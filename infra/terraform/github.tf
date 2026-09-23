@@ -14,6 +14,18 @@ variable "deploy_branch" {
   default     = "main"
 }
 
+variable "github_owner_id" {
+  description = "조직(yu-festa)의 숫자 ID. GitHub 불변 주체(immutable subject) 형식에 필요. `gh api orgs/<org> --jq .id`"
+  type        = string
+  default     = "328885567"
+}
+
+variable "github_repository_id" {
+  description = "저장소의 숫자 ID. `gh api repos/<owner>/<repo> --jq .id`"
+  type        = string
+  default     = "1369051319"
+}
+
 variable "create_github_oidc_provider" {
   description = "계정에 GitHub OIDC 공급자가 이미 있으면(apply에서 EntityAlreadyExists) false로 바꿔 기존 것을 참조한다"
   type        = bool
@@ -23,6 +35,14 @@ variable "create_github_oidc_provider" {
 locals {
   github_oidc_url = "https://token.actions.githubusercontent.com"
   github_oidc_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+
+  # 이 저장소는 GitHub의 불변 주체(use_immutable_subject) 설정이라 sub에 이름 옆에 숫자 ID가 붙는다:
+  #   repo:yu-festa@328885567/yufesta-server@1369051319:ref:refs/heads/main
+  # 이름만 있는 옛 형식(repo:yu-festa/yufesta-server:…)과 StringEquals로 비교하면 거부된다.
+  # 설정 확인: gh api repos/<owner>/<repo>/actions/oidc/customization/sub
+  github_owner = split("/", var.github_repository)[0]
+  github_repo  = split("/", var.github_repository)[1]
+  github_sub   = "repo:${local.github_owner}@${var.github_owner_id}/${local.github_repo}@${var.github_repository_id}:ref:refs/heads/${var.deploy_branch}"
 }
 
 # 계정당 하나만 존재할 수 있는 공급자. AWS가 GitHub의 인증서를 직접 검증하므로 thumbprint는 형식상 값이다
@@ -55,11 +75,11 @@ data "aws_iam_policy_document" "github_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # sub 클레임: repo:<owner/name>:ref:refs/heads/<branch>. push와 workflow_dispatch 모두 이 형태
+    # sub 클레임(불변 주체 형식). push와 workflow_dispatch 모두 이 형태
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.deploy_branch}"]
+      values   = [local.github_sub]
     }
   }
 }

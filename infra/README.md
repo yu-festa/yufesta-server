@@ -83,6 +83,7 @@ PR과 `develop` 푸시는 `ci.yml`이 테스트만 돌린다.
    `terraform.tfvars`에 `create_github_oidc_provider = false`를 두고 읽기만 한다(배포자 정책도 공급자 읽기 권한만). 공급자는 계정당 하나이며 역할별 신뢰 조건이 저장소·브랜치를 가르므로 기존 프로젝트와 간섭이 없다
 2. `terraform output -raw github_deploy_role_arn` 값을 GitHub 저장소 → Settings → Secrets and variables → Actions → **Variables** → `AWS_DEPLOY_ROLE_ARN`으로 등록(비밀이 아니라 Variables)
 3. GitHub에서 `main` 브랜치를 `develop`에서 생성 → `develop → main` PR 병합 → Actions 탭에서 Deploy 진행 확인
+4. `Not authorized to perform sts:AssumeRoleWithWebIdentity`가 나오면 Deploy 로그의 `OIDC 토큰 주체 확인` 단계에 찍힌 `sub=`를 `github.tf`의 `local.github_sub`와 대조한다. 이 저장소는 불변 주체 형식(`repo:owner@ID/repo@ID:ref:…`)이라 조직·저장소 숫자 ID가 변수로 들어가 있다
 
 **롤백**: 이전 커밋의 sha 태그를 `latest`로 되돌리고 재배포한다(이미지를 다시 받지 않는다).
 ```bash
