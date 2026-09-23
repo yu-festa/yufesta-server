@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 /**
  * 지도 장소 공개 API 명세
  */
-@Tag(name = "Place", description = "축제 지도 장소 (FR-MAP-01~03, 06)")
+@Tag(name = "Place", description = "축제 지도 장소 (FR-MAP)")
 @RequestMapping("/api/v1/places")
 public interface PlaceApi {
 
@@ -26,7 +26,7 @@ public interface PlaceApi {
             @Parameter(description = "장소 카테고리") @RequestParam(required = false) PlaceCategory category
     );
 
-    @Operation(summary = "장소 상세", description = "장소 정보와 진행 이벤트를 표시 순서대로 반환한다. 로그인 불필요. FR-MAP-03")
+    @Operation(summary = "장소 상세", description = "장소 정보와 연결된 이벤트를 표시 순서대로 반환한다. 로그인 불필요. FR-MAP-03")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "PLACE_NOT_FOUND")
     @GetMapping("/{placeId}")
     ApiResponse<PlaceDetailResponse> getPlace(@PathVariable Long placeId);
