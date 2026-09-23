@@ -51,78 +51,6 @@
       "Resource": "*"
     },
     {
-      "Sid": "DenyChangingResourcesWithoutProjectTag",
-      "Effect": "Deny",
-      "Action": [
-        "ec2:Delete*",
-        "ec2:Modify*",
-        "ec2:Terminate*",
-        "ec2:Detach*",
-        "ec2:Disassociate*",
-        "ec2:Revoke*",
-        "ec2:Authorize*",
-        "ec2:CreateRoute",
-        "ec2:ReplaceRoute",
-        "ec2:AssociateRouteTable",
-        "ec2:AttachInternetGateway",
-        "elasticloadbalancing:Delete*",
-        "elasticloadbalancing:Modify*",
-        "elasticloadbalancing:Set*",
-        "elasticloadbalancing:Deregister*",
-        "elasticloadbalancing:RemoveTags",
-        "ecs:Delete*",
-        "ecs:Update*",
-        "ecs:Deregister*",
-        "ecs:StopTask",
-        "ecs:UntagResource",
-        "ecr:Delete*",
-        "ecr:PutImage",
-        "ecr:PutLifecyclePolicy",
-        "ecr:PutImageTagMutability",
-        "ecr:PutImageScanningConfiguration",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:BatchDeleteImage",
-        "ecr:SetRepositoryPolicy",
-        "rds:Delete*",
-        "rds:Modify*",
-        "rds:Reboot*",
-        "rds:Stop*",
-        "rds:Start*",
-        "rds:RemoveTagsFromResource",
-        "logs:DeleteLogGroup",
-        "logs:PutRetentionPolicy",
-        "logs:DeleteRetentionPolicy",
-        "logs:UntagResource",
-        "cloudwatch:DeleteAlarms",
-        "cloudwatch:DisableAlarmActions",
-        "cloudwatch:EnableAlarmActions",
-        "cloudwatch:SetAlarmState",
-        "cloudwatch:UntagResource",
-        "sns:DeleteTopic",
-        "sns:SetTopicAttributes",
-        "sns:UntagResource",
-        "acm:DeleteCertificate",
-        "acm:RemoveTagsFromCertificate",
-        "elasticloadbalancing:CreateListener",
-        "elasticloadbalancing:CreateRule",
-        "elasticloadbalancing:RegisterTargets",
-        "elasticloadbalancing:AddListenerCertificates",
-        "rds:CreateDBSnapshot",
-        "rds:CopyDBSnapshot",
-        "rds:RestoreDBInstanceFromDBSnapshot",
-        "ecs:RunTask",
-        "ecs:StartTask"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringNotEquals": {
-          "aws:ResourceTag/Project": "yufesta"
-        }
-      }
-    },
-    {
       "Sid": "ProjectRolesOnly",
       "Effect": "Allow",
       "Action": [
@@ -178,7 +106,7 @@
         "route53:ChangeResourceRecordSets",
         "route53:ListResourceRecordSets"
       ],
-      "Resource": "arn:aws:route53:::hostedzone/<HOSTED_ZONE_ID>"
+      "Resource": "arn:aws:route53:::hostedzone/Z03236913E7LJI3DHAKU3"
     },
     {
       "Sid": "TerraformStateBucket",
