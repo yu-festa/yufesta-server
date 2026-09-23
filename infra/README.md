@@ -82,6 +82,7 @@ aws ecs update-service --cluster yufesta-cluster --service yufesta-api --force-n
 GitHub Actions(OIDC) 자동화는 다음 이슈.
 
 - 설정값(FRONTEND_URL 등) 변경: `variables.tf`/tfvars 수정 → `terraform apply` → 새 태스크 정의로 롤링 배포
+- 운영 Swagger(`https://api.yufesta.com/swagger-ui/index.html`)는 `swagger_enabled`로 켜고 끈다. 10/1 배포 전 `terraform.tfvars`에 `swagger_enabled = false`를 넣고 apply
 - 축제 당일(10/2)에는 `apply`·`push` 금지(NFR-AV-01)
 
 ## 4. 정리 (축제 후)
