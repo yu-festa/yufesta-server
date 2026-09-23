@@ -1,0 +1,86 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyChangingResourcesWithoutProjectTag",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:Delete*",
+        "ec2:Modify*",
+        "ec2:Terminate*",
+        "ec2:Detach*",
+        "ec2:Disassociate*",
+        "ec2:Revoke*",
+        "ec2:CreateRoute",
+        "ec2:ReplaceRoute",
+        "ec2:AssociateRouteTable",
+        "ec2:AttachInternetGateway",
+        "elasticloadbalancing:Delete*",
+        "elasticloadbalancing:Modify*",
+        "elasticloadbalancing:Set*",
+        "elasticloadbalancing:Deregister*",
+        "elasticloadbalancing:RemoveTags",
+        "ecs:Delete*",
+        "ecs:Update*",
+        "ecs:Deregister*",
+        "ecs:StopTask",
+        "ecs:UntagResource",
+        "ecr:Delete*",
+        "ecr:PutImage",
+        "ecr:PutLifecyclePolicy",
+        "ecr:PutImageTagMutability",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:BatchDeleteImage",
+        "ecr:SetRepositoryPolicy",
+        "rds:Delete*",
+        "rds:Modify*",
+        "rds:Reboot*",
+        "rds:Stop*",
+        "rds:Start*",
+        "rds:RemoveTagsFromResource",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DisableAlarmActions",
+        "cloudwatch:EnableAlarmActions",
+        "cloudwatch:SetAlarmState",
+        "cloudwatch:UntagResource",
+        "sns:DeleteTopic",
+        "sns:SetTopicAttributes",
+        "sns:UntagResource",
+        "acm:DeleteCertificate",
+        "acm:RemoveTagsFromCertificate",
+        "elasticloadbalancing:CreateListener",
+        "elasticloadbalancing:CreateRule",
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:AddListenerCertificates",
+        "rds:CreateDBSnapshot",
+        "rds:CopyDBSnapshot",
+        "rds:RestoreDBInstanceFromDBSnapshot",
+        "ecs:RunTask",
+        "ecs:StartTask"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:ResourceTag/Project": "yufesta"
+        }
+      }
+    },
+    {
+      "Sid": "DenyTouchingOtherLogGroups",
+      "Effect": "Deny",
+      "Action": [
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:UntagResource"
+      ],
+      "NotResource": [
+        "arn:aws:logs:ap-northeast-2:*:log-group:/ecs/yufesta-*",
+        "arn:aws:logs:ap-northeast-2:*:log-group:/ecs/yufesta-*:*"
+      ]
+    }
+  ]
+}
