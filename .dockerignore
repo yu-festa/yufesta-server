@@ -1,0 +1,12 @@
+.git
+.gradle
+build
+.env
+.idea
+*.iml
+# 빌드 컨텍스트에서 제외(CI 업로드 시간 단축). 이미지에 필요한 건 gradle 래퍼·설정·src뿐
+infra
+docs
+.github
+.claude
+*.md

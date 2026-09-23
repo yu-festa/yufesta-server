@@ -2,12 +2,26 @@ spring:
   application:
     name: yufesta
 
-  datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/yufesta?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+  profiles:
+    default: dev
 
   jpa:
-    hibernate:
-      ddl-auto: update
     open-in-view: false
+    # 부울 컬럼은 ERD의 TINYINT(1). MySQL 드라이버가 TINYINT(1)을 BIT로 보고하므로(tinyInt1isBit 기본 true)
+    # Hibernate 기본 부울 타입(BIT)이 validate와 맞는다. preferred_boolean_jdbc_type=TINYINT를 주면 오히려 어긋난다.
+    # JDBC URL에 tinyInt1isBit=false를 넣지 말 것
+
+app:
+  scheduler:
+    # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
+    enabled: ${SCHEDULER_ENABLED:true}
+    round-tick: PT10S
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

@@ -20,6 +20,7 @@ bin/
 
 ### IntelliJ IDEA ###
 .idea
+.DS_Store
 *.iws
 *.iml
 *.ipr
@@ -36,3 +37,17 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### 문서 ###
+# 설계 원문(srs.md, erd.md, erd.sql)은 추적한다. 개인 작업 메모만 제외
+docs/match-plan.md
+
+### Terraform ###
+# state·계획·변수 파일에는 RDS 주소·비밀번호가 들어간다. lock 파일(.terraform.lock.hcl)은 추적한다
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfplan
+infra/terraform/terraform.tfvars
+infra/terraform/*.auto.tfvars
+infra/terraform/crash.log

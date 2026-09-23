@@ -1,0 +1,61 @@
+# ALB가 TLS를 종료하고 HTTP로 전달하므로 X-Forwarded-Proto/Host로 https 기준 URL(OAuth redirect-uri 등)을 만든다.
+# 태스크는 ALB 보안 그룹에서만 접근되므로 헤더 위조 경로가 없다. dev에는 두지 않는다
+server:
+  forward-headers-strategy: framework
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET:}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-name: Kakao
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
+
+# 운영 Swagger는 프론트 연동 기간에만 켠다(Terraform swagger_enabled). 축제 전 false로 apply
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+    csrf:
+      enabled: true
+      cookie-name: XSRF-TOKEN
+      header-name: X-XSRF-TOKEN
+
+app:
+  auth:
+    frontend-url: ${FRONTEND_URL}
+    allowed-origins: ${ALLOWED_ORIGINS:}
+    jwt:
+      secret: ${JWT_SECRET}
+      access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:PT2H}
+    cookie:
+      name: access_token
+      secure: true
+      domain: ${AUTH_COOKIE_DOMAIN:}
