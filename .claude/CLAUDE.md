@@ -303,7 +303,10 @@ authenticated: 나머지 /api/v1/**        (쓰기)
 denyAll     : anyRequest
 ```
 
-- CSRF는 켜져 있다(`CookieCsrfTokenRepository`). 쓰기 요청은 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 하며, 프론트는 최초 1회 `GET /api/v1/auth/csrf`를 호출한다. 이 규칙을 API 명세에 적는다.
+- CSRF는 켜져 있다(`CookieCsrfTokenRepository`). 쓰기 요청은 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 하며, 프론트는 최초 1회 `GET /api/v1/auth/csrf`를 호출한다. 이 규칙을 API 명세에 적는다. 쿠키 domain(`AUTH_COOKIE_DOMAIN`, 운영 `.yufesta.com`)은 `access_token`과 `XSRF-TOKEN` 모두에 적용된다.
+- 세션은 `STATELESS`다. OAuth 인가 요청(state·nonce)과 로그인 후 이동 경로는 `CookieOAuth2AuthorizationRequestRepository`가 JWT 시크릿으로 HMAC 서명한 HttpOnly 쿠키(`oauth2_auth_request`, 5분)에 보관한다. 태스크가 여러 개여도 콜백이 어느 서버로 오든 검증된다. `JSESSIONID`가 응답에 나오면 회귀다.
+- prod는 `server.forward-headers-strategy: framework`. ALB가 TLS를 끝내고 HTTP로 넘기므로 `X-Forwarded-Proto`로 redirect-uri와 리다이렉트 URL을 https로 만든다. dev에는 두지 않는다(프록시가 없어 헤더 위조가 가능).
+- CORS 허용 origin은 `app.auth.allowed-origins`(환경변수 `ALLOWED_ORIGINS`, 쉼표 구분). 비어 있으면 `frontend-url` 하나. `frontend-url`은 로그인 후 리다이렉트 기준이라 항상 하나다.
 - 작성 금지(`write_banned_at`)·매칭 차단(`matching_blocked_at`)은 토큰이 아니라 쓰기 시점에 DB로 확인한다(FR-AUTH-08).
 - 운영자 API 호출은 접근 로그에 userId가 남아야 한다(NFR-SC-05). `RequestLoggingFilter`가 MDC의 `userId`를 함께 찍도록 확장한다.
 
@@ -422,7 +425,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
-4. OAuth `state`·redirect가 HttpSession(메모리)에 있음 — ECS 2 task에서 콜백이 다른 인스턴스로 오면 실패. 쿠키 기반 `AuthorizationRequestRepository`로 교체(권장) 또는 ALB 고정 세션
 9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 10. `OpenApiConfig`(쿠키 보안 스키마, 공통 오류 응답, 그룹 public/admin) 없음
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
