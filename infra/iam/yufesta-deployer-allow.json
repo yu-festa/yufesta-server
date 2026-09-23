@@ -126,6 +126,15 @@
         "s3:DeleteObject"
       ],
       "Resource": "arn:aws:s3:::yufesta-tfstate/*"
+    },
+    {
+      "Sid": "GithubOidcProviderReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetOpenIDConnectProvider",
+        "iam:ListOpenIDConnectProviderTags"
+      ],
+      "Resource": "arn:aws:iam::*:oidc-provider/token.actions.githubusercontent.com"
     }
   ]
 }

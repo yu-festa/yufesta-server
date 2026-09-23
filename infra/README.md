@@ -72,14 +72,29 @@ aws ecs describe-services --cluster yufesta-cluster --services yufesta-api --que
 - 운영자 지정: RDS는 프라이빗이라 밖에서 접속이 안 된다. `admin.allowlist`는 ECS Exec 또는 임시 배스천 없이 하려면
   로컬에서 `docker compose`로 같은 SQL을 만든 뒤, 운영자 후보가 첫 로그인을 하기 **전에** 다음 PR에서 붙일 운영자 API로 넣는다(TODO)
 
-## 3. 배포 갱신·운영
+## 3. 배포 갱신·운영 (GitHub Actions)
 
+**브랜치**: `develop`(통합) → `main`(운영). 배포하려면 `develop → main` PR을 병합한다. `main` 푸시마다 `.github/workflows/deploy.yml`이
+테스트 → ARM 러너에서 이미지 빌드 → ECR에 `latest`·`<sha>` push → `update-service --force-new-deployment` → `services-stable` 대기 → 헬스 확인을 한다(약 6~8분).
+PR과 `develop` 푸시는 `ci.yml`이 테스트만 돌린다.
+
+**최초 1회 연결**
+1. `terraform apply` (`github.tf`: 역할 `yufesta-github-deploy`). 소마 계정에는 기존 프로젝트가 만든 GitHub OIDC 공급자가 이미 있어
+   `terraform.tfvars`에 `create_github_oidc_provider = false`를 두고 읽기만 한다(배포자 정책도 공급자 읽기 권한만). 공급자는 계정당 하나이며 역할별 신뢰 조건이 저장소·브랜치를 가르므로 기존 프로젝트와 간섭이 없다
+2. `terraform output -raw github_deploy_role_arn` 값을 GitHub 저장소 → Settings → Secrets and variables → Actions → **Variables** → `AWS_DEPLOY_ROLE_ARN`으로 등록(비밀이 아니라 Variables)
+3. GitHub에서 `main` 브랜치를 `develop`에서 생성 → `develop → main` PR 병합 → Actions 탭에서 Deploy 진행 확인
+
+**롤백**: 이전 커밋의 sha 태그를 `latest`로 되돌리고 재배포한다(이미지를 다시 받지 않는다).
 ```bash
-docker build -t yufesta-api ../.. && docker tag yufesta-api:latest "${ECR}:latest" && docker push "${ECR}:latest"
+export AWS_PROFILE=yufesta
+aws ecr describe-images --repository-name yufesta-api --query 'sort_by(imageDetails,&imagePushedAt)[-5:].[imageTags,imagePushedAt]' --output table
+MANIFEST=$(aws ecr batch-get-image --repository-name yufesta-api --image-ids imageTag=<이전 sha> --query 'images[0].imageManifest' --output text)
+aws ecr put-image --repository-name yufesta-api --image-tag latest --image-manifest "$MANIFEST" >/dev/null
 aws ecs update-service --cluster yufesta-cluster --service yufesta-api --force-new-deployment
 ```
-롤링 배포(새 2개 → 건강 확인 → 옛 2개 종료). 새 버전이 헬스체크에 실패하면 서킷 브레이커가 자동 롤백한다.
-GitHub Actions(OIDC) 자동화는 다음 이슈.
+새 버전이 헬스체크에 계속 실패하면 서킷 브레이커가 자동으로 이전 태스크로 되돌리고 워크플로는 `rolloutState`가 COMPLETED가 아니라서 실패로 표시된다.
+
+**수동 배포**(워크플로를 못 쓸 때): 1절의 build·push 명령 후 `aws ecs update-service ... --force-new-deployment`.
 
 - 설정값(FRONTEND_URL 등) 변경: `variables.tf`/tfvars 수정 → `terraform apply` → 새 태스크 정의로 롤링 배포
 - 운영 Swagger(`https://api.yufesta.com/swagger-ui/index.html`)는 `swagger_enabled`로 켜고 끈다. 10/1 배포 전 `terraform.tfvars`에 `swagger_enabled = false`를 넣고 apply

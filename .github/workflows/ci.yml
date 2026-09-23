@@ -1,0 +1,26 @@
+# PR과 develop 푸시마다 테스트. 실패하면 병합하지 않는다
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Gradle 의존성 캐시. 같은 build.gradle이면 두 번째 실행부터 1분 이상 빨라진다
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: ./gradlew test --no-daemon

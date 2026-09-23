@@ -2,6 +2,9 @@
 # db_password는 여기 쓰지 말고 셸에서: export TF_VAR_db_password='...'
 alarm_email = "you@example.com"
 
+# 계정에 GitHub OIDC 공급자가 이미 있으면(apply에서 EntityAlreadyExists) 기존 것을 참조한다
+# create_github_oidc_provider = false
+
 # 축제 전에는 운영 Swagger를 끈다
 # swagger_enabled = false
 
