@@ -43,6 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # assume 거부 시 원인 판별용. sub가 신뢰 정책(repo:…:ref:refs/heads/main)과 다르면 다른 브랜치에서 실행된 것
+      - name: OIDC 토큰 주체 확인
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com');
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+            core.info(`sub=${claims.sub} aud=${claims.aud} ref=${claims.ref} event=${claims.event_name}`);
+
       - name: AWS 자격 증명 (OIDC로 yufesta-github-deploy 역할 assume)
         uses: aws-actions/configure-aws-credentials@v4
         with:
