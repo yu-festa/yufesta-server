@@ -51,6 +51,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
+- 인프라: `infra/terraform`(Terraform, 소마 계정 서울 리전, 전용 IAM 사용자 프로필 `yufesta`). 절차는 `infra/README.md`. `terraform plan/apply`와 AWS 자격 증명은 사람이 다루고 Claude는 파일만 쓴다. 기존 운영 인프라는 조회도 하지 않는다
 - 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
@@ -467,3 +468,4 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 - `System.out.println`, `printStackTrace`, 빈 `catch`
 - Boot 3 방식(`@MockBean`, `spring-boot-starter-web`, `AntPathRequestMatcher`, `com.fasterxml.jackson.databind.ObjectMapper`)
 - 합의 없는 라이브러리 추가, 요청 없는 커밋·푸시·브랜치 생성, 13장 개선 항목의 선제 구현
+- AWS 자격 증명·`.env`·`terraform.tfvars`·state를 읽거나 저장소에 넣는 것, `terraform apply`·`aws` 쓰기 명령 실행(사람이 한다)
