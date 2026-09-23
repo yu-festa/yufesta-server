@@ -23,6 +23,7 @@ locals {
     { name = "FRONTEND_URL", value = var.frontend_url },
     { name = "ALLOWED_ORIGINS", value = join(",", var.allowed_origins) },
     { name = "AUTH_COOKIE_DOMAIN", value = var.cookie_domain },
+    { name = "SWAGGER_ENABLED", value = tostring(var.swagger_enabled) },
   ]
 
   # ECS 에이전트가 시작 시 SSM에서 값을 꺼내 환경변수로 넣는다. 콘솔·로그에는 ARN만 보인다

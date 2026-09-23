@@ -70,6 +70,12 @@ variable "cpu_architecture" {
   default     = "ARM64"
 }
 
+variable "swagger_enabled" {
+  description = "운영 Swagger(/swagger-ui) 노출. 프론트 연동 기간에만 true, 축제 전 false로 바꿔 apply"
+  type        = bool
+  default     = true
+}
+
 variable "task_cpu" {
   description = "태스크 CPU 단위(1024 = 1 vCPU)"
   type        = number
