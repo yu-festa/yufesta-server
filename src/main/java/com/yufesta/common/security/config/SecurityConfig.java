@@ -4,6 +4,7 @@ import com.yufesta.common.security.handler.SecurityErrorResponseHandler;
 import com.yufesta.common.security.jwt.AuthCookieService;
 import com.yufesta.common.security.jwt.JwtAuthenticationFilter;
 import com.yufesta.common.security.jwt.JwtTokenProvider;
+import com.yufesta.common.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.yufesta.common.security.oauth2.OAuth2LoginFailureHandler;
 import com.yufesta.common.security.oauth2.OAuth2LoginSuccessHandler;
 import com.yufesta.common.security.oauth2.OAuth2ProviderUserIdExtractor;
@@ -26,6 +27,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.savedrequest.NullRequestCache;
+import org.springframework.util.StringUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -65,6 +67,21 @@ public class SecurityConfig {
         OAuth2RedirectRequestResolver authorizationRequestResolver = new OAuth2RedirectRequestResolver(
                 clientRegistrationRepository
         );
+        // OAuth state를 세션이 아니라 서명 쿠키에 둔다. 태스크가 여러 개여도 콜백이 어느 서버로 오든 검증된다(7장)
+        CookieOAuth2AuthorizationRequestRepository authorizationRequestRepository =
+                new CookieOAuth2AuthorizationRequestRepository(
+                        objectMapper,
+                        authProperties.jwt().secret(),
+                        authProperties.cookie().secure()
+                );
+        // XSRF-TOKEN 쿠키도 access_token과 같은 domain을 써야 다른 호스트의 프론트(yufesta.com)가 읽을 수 있다
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieCustomizer(cookie -> {
+            cookie.secure(authProperties.cookie().secure()).sameSite("Lax");
+            if (StringUtils.hasText(authProperties.cookie().domain())) {
+                cookie.domain(authProperties.cookie().domain());
+            }
+        });
         OAuth2LoginSuccessHandler successHandler = new OAuth2LoginSuccessHandler(
                 userLoginService,
                 providerUserIdExtractor,
@@ -78,11 +95,11 @@ public class SecurityConfig {
         return http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 )
-                // OAuth state 검증에 세션이 필요하므로 IF_REQUIRED 유지. 로그인 성공 뒤 세션은 핸들러가 제거
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                // 인증은 JWT 쿠키, OAuth 상태는 서명 쿠키라 서버 세션이 전혀 필요 없다. JSESSIONID가 나가면 회귀다
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // API 서버라 401 요청을 세션에 저장해 두었다가 되돌려 줄 일이 없음
                 .requestCache(cache -> cache.requestCache(new NullRequestCache()))
                 .exceptionHandling(handling -> handling
@@ -115,6 +132,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestResolver(authorizationRequestResolver)
+                                .authorizationRequestRepository(authorizationRequestRepository)
                         )
                         .successHandler(successHandler)
                         .failureHandler(failureHandler)

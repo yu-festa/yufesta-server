@@ -39,7 +39,6 @@ public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
         String errorCode = resolveErrorCode(exception);
         log.info("소셜 로그인 실패: {}", errorCode);
 
-        HttpSessionCleaner.invalidate(request);
         redirectStrategy.sendRedirect(
                 request,
                 response,

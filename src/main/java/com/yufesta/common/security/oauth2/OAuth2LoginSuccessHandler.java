@@ -55,7 +55,6 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         authCookieService.addAccessToken(response, jwtTokenProvider.createAccessToken(user.getId()));
 
         String redirectPath = OAuth2RedirectRequestResolver.consumeRedirectUri(request);
-        HttpSessionCleaner.invalidate(request);
         getRedirectStrategy().sendRedirect(request, response, frontendUrl.resolve(redirectPath));
     }
 }

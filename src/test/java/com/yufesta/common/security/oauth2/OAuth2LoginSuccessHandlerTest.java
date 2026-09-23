@@ -57,14 +57,13 @@ class OAuth2LoginSuccessHandlerTest {
         when(userLoginService.login(OAuthProvider.KAKAO, "12345")).thenReturn(user);
         when(jwtTokenProvider.createAccessToken(7L)).thenReturn("jwt");
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.getSession().setAttribute(OAuth2RedirectRequestResolver.REDIRECT_URI_SESSION_ATTRIBUTE, "/match/apply");
+        request.setAttribute(OAuth2RedirectRequestResolver.REDIRECT_PATH_ATTRIBUTE, "/match/apply");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         handler.onAuthenticationSuccess(request, response, kakaoAuthentication(12345L));
 
         verify(authCookieService).addAccessToken(response, "jwt");
         assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:3000/match/apply");
-        assertThat(request.getSession(false)).isNull();
     }
 
     @Test
