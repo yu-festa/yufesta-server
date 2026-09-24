@@ -129,6 +129,32 @@ public class LostItemService {
         return LostItemResponse.from(lostItem);
     }
 
+    /**
+     * 콘텐츠 신고 전 일반 분실물 게시글을 잠그고 신고 가능 여부를 확인한다.
+     * <p>공식 안내소 글과 숨겨진 글은 ERD 기준 신고 대상에서 제외된다.
+     * @throws CustomException CONTENT_REPORT_TARGET_NOT_FOUND, CONTENT_NOT_REPORTABLE
+     */
+    @Transactional
+    public void lockReportableForReport(Long lostItemId) {
+        LostItem lostItem = getLostItemForUpdate(lostItemId);
+        if (lostItem.isOfficial() || lostItem.isHidden()) {
+            throw new CustomException(ErrorCode.CONTENT_NOT_REPORTABLE);
+        }
+    }
+
+    /**
+     * 신고 수를 원자적으로 늘리고 임계값에 도달하면 숨긴다.
+     * <p>호출 전 lockReportableForReport로 같은 행을 잠가야 한다.
+     */
+    @Transactional
+    public void incrementReportCountAndHideIfThreshold(Long lostItemId, int hideThreshold) {
+        lostItemRepository.incrementReportCount(lostItemId);
+        LostItem lostItem = getLostItemForUpdate(lostItemId);
+        if (lostItem.getReportCount() >= hideThreshold) {
+            lostItem.hide();
+        }
+    }
+
     private LostItem requireOwnedLostItem(Long userId, Long lostItemId) {
         requireLogin(userId);
         LostItem lostItem = getLostItemOrThrow(lostItemId);
@@ -141,6 +167,11 @@ public class LostItemService {
     private LostItem getLostItemOrThrow(Long lostItemId) {
         return lostItemRepository.findById(lostItemId)
                 .orElseThrow(() -> new CustomException(ErrorCode.LOST_ITEM_NOT_FOUND));
+    }
+
+    private LostItem getLostItemForUpdate(Long lostItemId) {
+        return lostItemRepository.findByIdForUpdate(lostItemId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CONTENT_REPORT_TARGET_NOT_FOUND));
     }
 
     private User requireUser(Long userId) {
