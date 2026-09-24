@@ -1,6 +1,10 @@
-# YU FESTA ERD 설명서 v1.2
+# YU FESTA ERD 설명서 v1.3
 
 기준: SRS v1.6 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+
+v1.3 변경 요약 (2026-09-24, 총동연 타임라인 반영)
+- **타임테이블 구분 확장**: `timetable_slots.slot_type`에 `EVENT` 추가(개회식·총장님 연설·가요제처럼 출연 동아리가 없는 순서)
+- **타임테이블 초기 데이터**: `db/migration/V3__timetable_initial.sql`. 무대 STAGE 장소 1건(없을 때만) + 공연 13건. 팔찌 배부·입장 안내는 공지로
 
 v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 - **응원 메시지 비로그인 작성**: `cheers.author_user_id` 제거, 익명 키 해시(`writer_key_hash`) 추가. users와의 FK 없음
@@ -136,13 +140,14 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 ## 6. timetable_slots — 공연 타임테이블
 
 공연 한 건. 순서 변경·지연·LIVE 수동 지정을 모두 이 테이블로 표현한다.
+초기 데이터는 `V3__timetable_initial.sql`(무대 STAGE 장소 1건 + 총동연 타임라인 13건, 하단 INSERT와 동일). 팔찌 배부·입장 안내는 공지로 다룬다.
 
 | 컬럼 | 한글명 | 타입 | NULL | 역할 |
 |---|---|---|---|---|
 | id | 공연 슬롯 ID | BIGINT UNSIGNED | N | PK. 신청의 "보고 싶은 공연" 참조 |
 | sort_order | 공연 순서 | INT | N | 목록 순서. 순서 변경 시 갱신 |
 | title | 공연명(출연자명) | VARCHAR(50) | N | 동아리 연결이 없는 초청 공연도 표시 가능 |
-| slot_type | 구분 | VARCHAR(10) | N | `CLUB` / `GUEST` |
+| slot_type | 구분 | VARCHAR(10) | N | `CLUB` / `GUEST` / `EVENT`(개회식·연설·가요제처럼 출연 동아리가 없는 순서. v1.3) |
 | start_at | 시작 시각 | DATETIME | N | LIVE 판정·홈 "다음 공연" 계산 기준. **회차별 선택 가능 여부 판정(start_at ≥ 회차 publish_at)** |
 | end_at | 종료 시각 | DATETIME | N | |
 | stage_place_id | 무대 장소 ID | BIGINT UNSIGNED | N | FK → places(category=STAGE) |
@@ -392,3 +397,4 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | v1.0 | 2026-09-15 | SRS v1.5 기준 초안. 16 테이블 + admin_users |
 | v1.1 | 2026-09-15 | admin_users 제거, `users.role`로 통합 |
 | v1.2 | 2026-09-17 | 응원 메시지 비로그인(작성자 FK 제거, 익명 키 해시), 필터 상태 컬럼, 이월 신청 자동 생성(`entry_type`·`source_application_id`), 회차 초기값 16:00/20:00, `matching_blocked_at`·VARCHAR(1)·감사 시각 통일·대문자 열거형(스프링 엔티티 정합), 설정 키 6종 추가 |
+| v1.3 | 2026-09-24 | `timetable_slots.slot_type`에 `EVENT` 추가, 타임테이블 초기 데이터(V3: 무대 1·공연 13) |
