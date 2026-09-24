@@ -9,6 +9,7 @@ import com.yufesta.domain.lostitem.dto.request.UpdateLostItemVisibilityRequest;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
+import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.util.List;
@@ -153,6 +154,12 @@ public class LostItemService {
         if (lostItem.getReportCount() >= hideThreshold) {
             lostItem.hide();
         }
+    }
+
+    /** 운영자 신고 목록에 대상 분실물 게시글의 현재 상태를 제공한다. */
+    public ContentTargetStatus getTargetStatusForAdmin(Long lostItemId) {
+        LostItem lostItem = getLostItemOrThrow(lostItemId);
+        return new ContentTargetStatus(lostItem.getReportCount(), lostItem.isHidden());
     }
 
     private LostItem requireOwnedLostItem(Long userId, Long lostItemId) {

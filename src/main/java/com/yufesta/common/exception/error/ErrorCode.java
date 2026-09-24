@@ -42,8 +42,10 @@ public enum ErrorCode {
 
     // 콘텐츠 신고
     CONTENT_REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_TARGET_NOT_FOUND", "신고할 콘텐츠를 찾을 수 없습니다."),
+    CONTENT_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_NOT_FOUND", "콘텐츠 신고 내역을 찾을 수 없습니다."),
     CONTENT_NOT_REPORTABLE(HttpStatus.BAD_REQUEST, "CONTENT_NOT_REPORTABLE", "신고할 수 없는 콘텐츠입니다."),
     CONTENT_REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "CONTENT_REPORT_ALREADY_EXISTS", "이미 신고한 콘텐츠입니다."),
+    CHEER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHEER_NOT_FOUND", "응원 메시지를 찾을 수 없습니다."),
 
     // 인스타팅
     MATCH_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_ROUND_NOT_FOUND", "회차를 찾을 수 없습니다."),
