@@ -23,6 +23,10 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "FORBIDDEN", "접근 권한이 없습니다."),
 
+    // 이미지
+    IMAGE_UNSUPPORTED_TYPE(HttpStatus.BAD_REQUEST, "IMAGE_UNSUPPORTED_TYPE", "jpeg 또는 png 이미지만 올릴 수 있습니다."),
+    IMAGE_INVALID(HttpStatus.BAD_REQUEST, "IMAGE_INVALID", "이미지 파일을 읽을 수 없습니다."),
+
     // 회원
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "회원을 찾을 수 없습니다."),
 

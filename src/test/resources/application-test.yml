@@ -39,6 +39,14 @@ spring:
 app:
   scheduler:
     enabled: false
+  storage:
+    type: local
+    cdn-url: http://localhost/uploads
+    s3:
+      bucket:
+      region: ap-northeast-2
+    local:
+      dir: build/test-uploads
   auth:
     frontend-url: http://localhost:3000
     jwt:
