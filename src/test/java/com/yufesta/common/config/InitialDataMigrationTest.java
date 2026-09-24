@@ -3,6 +3,8 @@ package com.yufesta.common.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yufesta.domain.appsetting.repository.AppSettingRepository;
+import com.yufesta.domain.club.entity.Club;
+import com.yufesta.domain.club.repository.ClubRepository;
 import com.yufesta.domain.match.enums.RoundStatus;
 import com.yufesta.domain.match.repository.MatchRoundRepository;
 import com.yufesta.domain.place.entity.Place;
@@ -25,7 +27,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * 초기 데이터 마이그레이션(V2·V3)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
+ * 초기 데이터 마이그레이션(V2·V3·V4)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
  * V1은 MySQL 전용 문법이라 여기서 실행하지 않고, 스키마는 Hibernate가 엔티티로 만든다. 엔티티 저장이 필요한 케이스를 위해 Auditing 설정을 넣는다
  */
 @DataJpaTest
@@ -48,6 +50,9 @@ class InitialDataMigrationTest {
 
     @Autowired
     private TimetableSlotRepository timetableSlotRepository;
+
+    @Autowired
+    private ClubRepository clubRepository;
 
     @Test
     void 초기_데이터는_설정_16행과_회차_2행을_넣는다() {
@@ -100,6 +105,27 @@ class InitialDataMigrationTest {
         assertThat(placeRepository.count()).isEqualTo(1);
         assertThat(timetableSlotRepository.findAllWithStageOrderBySortOrder())
                 .allSatisfy(slot -> assertThat(slot.getStage().getId()).isEqualTo(existing.getId()));
+    }
+
+    @Test
+    void 라인업_초기_데이터는_동아리_9행을_넣고_CLUB_공연_9건에_연결한다() {
+        populate("db/migration/V3__timetable_initial.sql");
+        populate("db/migration/V4__club_initial.sql");
+
+        assertThat(clubRepository.findAllByOrderBySortOrderAscNameAsc())
+                .extracting(Club::getName)
+                .containsExactly("신명마당", "천마응원단", "HIPCOM", "코스모스", "The WE", "ECHOES", "예사가락", "BLUEWAVE", "MAX & ZENITH");
+        List<TimetableSlot> linked = timetableSlotRepository.findAllWithClubOrderBySortOrder();
+        assertThat(linked).hasSize(9);
+        assertThat(linked).allSatisfy(slot -> assertThat(slot.getSlotType()).isEqualTo(SlotType.CLUB));
+        // 공연명과 동아리명 표기가 다른 항목도 연결된다
+        assertThat(linked).filteredOn(slot -> slot.getTitle().equals("COSMOS"))
+                .singleElement().extracting(slot -> slot.getClub().getName()).isEqualTo("코스모스");
+        assertThat(linked).filteredOn(slot -> slot.getTitle().equals("BLUE WAVE"))
+                .singleElement().extracting(slot -> slot.getClub().getName()).isEqualTo("BLUEWAVE");
+        assertThat(timetableSlotRepository.findAllWithStageOrderBySortOrder())
+                .filteredOn(slot -> slot.getSlotType() != SlotType.CLUB)
+                .allSatisfy(slot -> assertThat(slot.getClub()).isNull());
     }
 
     private void populate(String path) {
