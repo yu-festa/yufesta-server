@@ -1,5 +1,7 @@
 package com.yufesta.domain.timetable.service;
 
+import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.timetable.dto.response.TimetableResponse;
 import com.yufesta.domain.timetable.dto.response.TimetableSlotResponse;
 import com.yufesta.domain.timetable.entity.TimetableSlot;
@@ -47,6 +49,20 @@ public class TimetableService {
      */
     public List<TimetableSlot> getSlotsWithClub() {
         return timetableSlotRepository.findAllWithClubOrderBySortOrder();
+    }
+
+    /**
+     * 다른 도메인이 공연을 연관으로 쓸 때 엔티티를 준다(인스타팅 신청의 보고 싶은 공연).
+     * @throws CustomException TIMETABLE_SLOT_NOT_FOUND
+     */
+    public TimetableSlot getSlot(Long slotId) {
+        return timetableSlotRepository.findById(slotId)
+                .orElseThrow(() -> new CustomException(ErrorCode.TIMETABLE_SLOT_NOT_FOUND));
+    }
+
+    /** 기준 시각 이후에 시작하는 공연을 표시 순서대로. 인스타팅 선택지(FR-MT-05)가 회차 발표 시각을 넣어 부른다 */
+    public List<TimetableSlot> getSlotsStartingAtOrAfter(LocalDateTime from) {
+        return timetableSlotRepository.findAllStartingAtOrAfterWithStage(from);
     }
 
     // 현장 진행이 시간표와 어긋날 때는 운영자 판단이 시계보다 우선한다(FR-TT-03)

@@ -7,6 +7,7 @@ import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
 import com.yufesta.domain.match.dto.response.MatchReportResponse;
 import com.yufesta.domain.match.dto.response.MatchResultResponse;
+import com.yufesta.domain.match.dto.response.MatchSlotsResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +45,14 @@ public interface MatchApi {
     @Operation(summary = "관심 태그 목록", description = "신청 화면 선택지. 고정 10개, 최대 3개 선택. 로그인 불필요. FR-MT-10")
     @GetMapping("/tags")
     ApiResponse<List<MatchTagResponse>> getTags();
+
+    @Operation(
+            summary = "선택 가능한 공연 목록",
+            description = "현재 회차 발표 시각 이후에 시작하는 공연만 준다. 신청 화면의 '보고 싶은 공연' 선택지이며 "
+                    + "서버도 같은 규칙으로 신청을 거부한다(APPLICATION_SLOT_NOT_SELECTABLE). 로그인 불필요. FR-MT-05·10"
+    )
+    @GetMapping("/slots")
+    ApiResponse<MatchSlotsResponse> getSlots();
 
     @Operation(
             summary = "인스타팅 신청",
