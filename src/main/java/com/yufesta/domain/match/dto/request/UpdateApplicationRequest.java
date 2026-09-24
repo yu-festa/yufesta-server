@@ -31,6 +31,9 @@ public record UpdateApplicationRequest(
         @Size(max = 3) Set<MatchTag> tags,
 
         @Schema(description = "한 줄 소개 40자 이내(선택)", example = "공연 같이 봐요")
-        @Size(max = 40) String intro
+        @Size(max = 40) String intro,
+
+        @Schema(description = "보고 싶은 공연 슬롯 ID(선택). null이면 선택 해제", example = "4")
+        Long wantedSlotId
 ) {
 }

@@ -34,6 +34,9 @@ public record ApplyMatchRequest(
         @Schema(description = "한 줄 소개 40자 이내(선택)", example = "같이 공연 보실 분")
         @Size(max = 40) String intro,
 
+        @Schema(description = "보고 싶은 공연 슬롯 ID(선택). GET /match/slots 목록 중 하나. 회차 발표 이후 시작 공연만", example = "4")
+        Long wantedSlotId,
+
         @Schema(description = "동의한 이용약관 버전", example = "2026-09-01")
         @NotBlank @Size(max = 20) String termsVersion,
 

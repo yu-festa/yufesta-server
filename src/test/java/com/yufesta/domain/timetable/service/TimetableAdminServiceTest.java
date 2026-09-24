@@ -11,6 +11,7 @@ import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.club.entity.Club;
 import com.yufesta.domain.club.service.ClubService;
+import com.yufesta.domain.match.service.ApplicationService;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.place.service.PlaceService;
@@ -48,6 +49,9 @@ class TimetableAdminServiceTest {
 
     @Mock
     private ClubService clubService;
+
+    @Mock
+    private ApplicationService applicationService;
 
     @InjectMocks
     private TimetableAdminService timetableAdminService;
@@ -204,13 +208,15 @@ class TimetableAdminServiceTest {
     }
 
     @Test
-    void 삭제하면_리포지토리에서_지운다() {
+    void 삭제하면_신청의_공연_선택을_먼저_비우고_지운다() {
         TimetableSlot slot = slot(4L, 4);
         when(timetableSlotRepository.findById(4L)).thenReturn(Optional.of(slot));
 
         timetableAdminService.delete(4L);
 
-        verify(timetableSlotRepository).delete(slot);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(applicationService, timetableSlotRepository);
+        order.verify(applicationService).detachWantedSlot(4L);
+        order.verify(timetableSlotRepository).delete(slot);
     }
 
     private static CreateTimetableSlotRequest createRequest(Long stagePlaceId, LocalDateTime startAt, LocalDateTime endAt) {
