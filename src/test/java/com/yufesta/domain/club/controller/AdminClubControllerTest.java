@@ -20,6 +20,7 @@ import com.yufesta.support.WithMockLoginUser;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @WebMvcTest(controllers = AdminClubController.class)
@@ -68,6 +69,26 @@ class AdminClubControllerTest extends ControllerTestSupport {
                         .content(CLUB_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("동아리를 수정했습니다."));
+    }
+
+    @Test
+    @WithMockLoginUser(role = UserRole.STAFF)
+    void STAFF는_multipart로_대표_사진을_올린다() throws Exception {
+        when(clubAdminService.uploadPhoto(eq(3L), any())).thenReturn(clubResponse());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/admin/clubs/3/photo")
+                        .file(new MockMultipartFile("file", "hipcom.png", "image/png", new byte[] {1, 2, 3}))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("대표 사진을 올렸습니다."))
+                .andExpect(jsonPath("$.data.id").value(3));
+    }
+
+    @Test
+    @WithMockLoginUser(role = UserRole.STAFF)
+    void STAFF는_대표_사진을_지우면_204다() throws Exception {
+        mockMvc.perform(delete("/api/v1/admin/clubs/3/photo").with(csrf()))
+                .andExpect(status().isNoContent());
     }
 
     @Test
