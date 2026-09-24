@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yufesta.common.config.ClockConfig;
 import com.yufesta.common.config.JpaConfig;
+import com.yufesta.domain.club.entity.Club;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.timetable.entity.TimetableSlot;
@@ -72,13 +73,31 @@ class TimetableSchemaTest {
         em.clear();
 
         TimetableSlot found = timetableSlotRepository.findById(plain.getId()).orElseThrow();
-        assertThat(found.getClubId()).isNull();
+        assertThat(found.getClub()).isNull();
         assertThat(found.getDelayMinutes()).isNull();
         assertThat(found.getLiveOverride()).isNull();
         assertThat(found.getChangedFromStart()).isNull();
         assertThat(timetableSlotRepository.findAllByLiveOverrideTrue())
                 .extracting(TimetableSlot::getId)
                 .containsExactly(live.getId());
+    }
+
+    @Test
+    void 동아리가_연결된_공연만_동아리와_함께_조회하고_동아리별로도_찾는다() {
+        Club hipcom = em.persist(Club.builder().name("HIPCOM").intro("힙합").sortOrder(1).build());
+        em.persist(slot(1, "개회식", DAY.withHour(15), DAY.withHour(15).withMinute(10)));
+        TimetableSlot show = slot(2, "HIPCOM", DAY.withHour(16).withMinute(15), DAY.withHour(16).withMinute(45));
+        show.update(show.getTitle(), show.getSlotType(), stage, hipcom);
+        em.persist(show);
+        em.flush();
+        em.clear();
+
+        List<TimetableSlot> withClub = timetableSlotRepository.findAllWithClubOrderBySortOrder();
+        assertThat(withClub).extracting(TimetableSlot::getTitle).containsExactly("HIPCOM");
+        assertThat(withClub.get(0).getClub().getName()).isEqualTo("HIPCOM");
+        assertThat(timetableSlotRepository.findAllByClub_Id(hipcom.getId())).hasSize(1);
+        // 전체 목록은 동아리 없는 공연도 포함한다(left join)
+        assertThat(timetableSlotRepository.findAllWithStageOrderBySortOrder()).hasSize(2);
     }
 
     private TimetableSlot slot(int sortOrder, String title, LocalDateTime startAt, LocalDateTime endAt) {

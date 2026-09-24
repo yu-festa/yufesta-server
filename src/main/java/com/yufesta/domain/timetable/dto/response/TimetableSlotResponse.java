@@ -24,7 +24,7 @@ public record TimetableSlotResponse(
         @Schema(description = "순서·시간 변경 여부. true면 changedFromStart를 취소선으로 표시", example = "false") boolean isChanged,
         @Schema(description = "변경 전 원래 시작 시각. 변경이 없으면 null") LocalDateTime changedFromStart,
         @Schema(description = "무대") TimetableStageResponse stage,
-        @Schema(description = "라인업 동아리 ID. 초청·행사 순서는 null", example = "3") Long clubId
+        @Schema(description = "출연 동아리. EVENT·GUEST는 null") TimetableClubResponse club
 ) {
 
     public static TimetableSlotResponse of(TimetableSlot slot, boolean live) {
@@ -42,7 +42,7 @@ public record TimetableSlotResponse(
                 .isChanged(slot.isChanged())
                 .changedFromStart(slot.getChangedFromStart())
                 .stage(TimetableStageResponse.from(slot.getStage()))
-                .clubId(slot.getClubId())
+                .club(slot.getClub() == null ? null : TimetableClubResponse.from(slot.getClub()))
                 .build();
     }
 }

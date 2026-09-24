@@ -2,6 +2,8 @@ package com.yufesta.domain.timetable.service;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
+import com.yufesta.domain.club.entity.Club;
+import com.yufesta.domain.club.service.ClubService;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.place.service.PlaceService;
@@ -33,10 +35,16 @@ public class TimetableAdminService {
 
     private final TimetableSlotRepository timetableSlotRepository;
     private final PlaceService placeService;
+    private final ClubService clubService;
 
-    public TimetableAdminService(TimetableSlotRepository timetableSlotRepository, PlaceService placeService) {
+    public TimetableAdminService(
+            TimetableSlotRepository timetableSlotRepository,
+            PlaceService placeService,
+            ClubService clubService
+    ) {
         this.timetableSlotRepository = timetableSlotRepository;
         this.placeService = placeService;
+        this.clubService = clubService;
     }
 
     /** 운영자 화면용 전체 목록. 표시 순서대로 */
@@ -48,8 +56,8 @@ public class TimetableAdminService {
 
     /**
      * 공연을 등록한다.
-     * <p>검증: 무대는 category=STAGE 장소만, 종료는 시작보다 뒤(FR-TT-01, FR-ADM-06).
-     * @throws CustomException PLACE_NOT_FOUND, TIMETABLE_STAGE_INVALID, TIMETABLE_INVALID_TIME
+     * <p>검증: 무대는 category=STAGE 장소만, 종료는 시작보다 뒤, clubId가 있으면 존재하는 동아리(FR-TT-01, FR-ADM-06).
+     * @throws CustomException PLACE_NOT_FOUND, TIMETABLE_STAGE_INVALID, TIMETABLE_INVALID_TIME, CLUB_NOT_FOUND
      */
     @Transactional
     public AdminTimetableSlotResponse create(CreateTimetableSlotRequest request) {
@@ -61,19 +69,19 @@ public class TimetableAdminService {
                 .startAt(request.startAt())
                 .endAt(request.endAt())
                 .stage(getStage(request.stagePlaceId()))
-                .clubId(request.clubId())
+                .club(getClub(request.clubId()))
                 .build();
         return AdminTimetableSlotResponse.from(timetableSlotRepository.save(slot));
     }
 
     /**
      * 공연명·구분·무대·동아리 연결을 수정한다. 시각은 {@link #changeTimes}로만 바꾼다(변경 기록 때문).
-     * @throws CustomException TIMETABLE_SLOT_NOT_FOUND, PLACE_NOT_FOUND, TIMETABLE_STAGE_INVALID
+     * @throws CustomException TIMETABLE_SLOT_NOT_FOUND, PLACE_NOT_FOUND, TIMETABLE_STAGE_INVALID, CLUB_NOT_FOUND
      */
     @Transactional
     public AdminTimetableSlotResponse update(Long slotId, UpdateTimetableSlotRequest request) {
         TimetableSlot slot = getSlotOrThrow(slotId);
-        slot.update(request.title(), request.slotType(), getStage(request.stagePlaceId()), request.clubId());
+        slot.update(request.title(), request.slotType(), getStage(request.stagePlaceId()), getClub(request.clubId()));
         return AdminTimetableSlotResponse.from(slot);
     }
 
@@ -147,6 +155,15 @@ public class TimetableAdminService {
                 .toList();
     }
 
+    /**
+     * 동아리가 삭제될 때 그 동아리의 공연에서 연결만 끊는다. 공연 자체는 남는다.
+     * <p>라인업 운영자 서비스가 삭제 직전에 호출한다(다른 도메인 Repository 주입 금지).
+     */
+    @Transactional
+    public void detachClub(Long clubId) {
+        timetableSlotRepository.findAllByClub_Id(clubId).forEach(TimetableSlot::detachClub);
+    }
+
     private TimetableSlot getSlotOrThrow(Long slotId) {
         return timetableSlotRepository.findById(slotId)
                 .orElseThrow(() -> new CustomException(ErrorCode.TIMETABLE_SLOT_NOT_FOUND));
@@ -159,6 +176,11 @@ public class TimetableAdminService {
             throw new CustomException(ErrorCode.TIMETABLE_STAGE_INVALID);
         }
         return place;
+    }
+
+    // clubId는 선택값. 있으면 라인업 도메인 서비스로 존재를 확인한다
+    private Club getClub(Long clubId) {
+        return clubId == null ? null : clubService.getClubEntity(clubId);
     }
 
     private static void validateTimes(LocalDateTime startAt, LocalDateTime endAt) {

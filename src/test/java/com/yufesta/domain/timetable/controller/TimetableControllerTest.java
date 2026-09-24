@@ -45,6 +45,6 @@ class TimetableControllerTest extends ControllerTestSupport {
                 .andExpect(jsonPath("$.data.slots[0].isChanged").value(false))
                 .andExpect(jsonPath("$.data.slots[0].changedFromStart").doesNotExist())
                 .andExpect(jsonPath("$.data.slots[0].stage.name").value("중앙 무대"))
-                .andExpect(jsonPath("$.data.slots[0].clubId").doesNotExist());
+                .andExpect(jsonPath("$.data.slots[0].club").doesNotExist());
     }
 }

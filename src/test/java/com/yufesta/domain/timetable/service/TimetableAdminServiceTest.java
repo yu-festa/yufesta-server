@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
+import com.yufesta.domain.club.entity.Club;
+import com.yufesta.domain.club.service.ClubService;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.place.service.PlaceService;
@@ -43,6 +45,9 @@ class TimetableAdminServiceTest {
 
     @Mock
     private PlaceService placeService;
+
+    @Mock
+    private ClubService clubService;
 
     @InjectMocks
     private TimetableAdminService timetableAdminService;
@@ -82,6 +87,36 @@ class TimetableAdminServiceTest {
         assertThat(response.id()).isEqualTo(4L);
         assertThat(response.stageName()).isEqualTo("중앙 무대");
         assertThat(response.liveOverride()).isFalse();
+    }
+
+    @Test
+    void 등록_시_clubId가_있으면_라인업_서비스로_확인해_연결한다() {
+        when(placeService.getPlaceEntity(1L)).thenReturn(place(1L, PlaceCategory.STAGE));
+        Club club = Club.builder().name("HIPCOM").intro("힙합").sortOrder(1).build();
+        ReflectionTestUtils.setField(club, "id", 3L);
+        when(clubService.getClubEntity(3L)).thenReturn(club);
+        when(timetableSlotRepository.save(any(TimetableSlot.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        CreateTimetableSlotRequest request = CreateTimetableSlotRequest.builder()
+                .title("HIPCOM").slotType(SlotType.CLUB).startAt(START).endAt(END).stagePlaceId(1L).clubId(3L).sortOrder(4)
+                .build();
+
+        AdminTimetableSlotResponse response = timetableAdminService.create(request);
+
+        assertThat(response.clubId()).isEqualTo(3L);
+        assertThat(response.clubName()).isEqualTo("HIPCOM");
+    }
+
+    @Test
+    void 동아리_연결_해제는_그_동아리의_공연에서_club만_비운다() {
+        Club club = Club.builder().name("HIPCOM").intro("힙합").sortOrder(1).build();
+        TimetableSlot show = slot(4L, 4);
+        show.update(show.getTitle(), show.getSlotType(), show.getStage(), club);
+        when(timetableSlotRepository.findAllByClub_Id(3L)).thenReturn(List.of(show));
+
+        timetableAdminService.detachClub(3L);
+
+        assertThat(show.getClub()).isNull();
+        assertThat(show.getTitle()).isEqualTo("공연 4");
     }
 
     @Test
