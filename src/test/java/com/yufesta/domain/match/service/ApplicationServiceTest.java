@@ -32,6 +32,11 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.yufesta.domain.place.entity.Place;
+import com.yufesta.domain.place.enums.PlaceCategory;
+import com.yufesta.domain.timetable.entity.TimetableSlot;
+import com.yufesta.domain.timetable.enums.SlotType;
+import java.math.BigDecimal;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -59,6 +64,9 @@ class ApplicationServiceTest {
     @Mock
     private UserService userService;
 
+    @Mock
+    private WantedSlotService wantedSlotService;
+
     private ApplicationService applicationService;
     private MatchRound round;
     private User user;
@@ -66,7 +74,7 @@ class ApplicationServiceTest {
     @BeforeEach
     void setUp() {
         applicationService = new ApplicationService(
-                applicationRepository, matchRepository, matchRoundService, userService,
+                applicationRepository, matchRepository, matchRoundService, userService, wantedSlotService,
                 Clock.fixed(NOW.atZone(KST).toInstant(), KST)
         );
         round = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(CLOSE_AT).publishAt(CLOSE_AT.plusMinutes(10)).build();
@@ -291,6 +299,121 @@ class ApplicationServiceTest {
         when(matchRoundService.getCurrentRound()).thenReturn(open);
         when(matchRoundService.findLatestPublishedRound()).thenReturn(Optional.empty());
         assertError(() -> applicationService.rejoin(USER_ID), ErrorCode.MATCH_RESULT_NOT_PUBLISHED);
+    }
+
+    @Test
+    void 신청_시_보고_싶은_공연을_규칙_검증_후_저장한다() {
+        givenOpenRoundAndUser();
+        TimetableSlot hipcom = slot(4L, CLOSE_AT.plusMinutes(25));
+        when(wantedSlotService.requireSelectable(round, 4L)).thenReturn(hipcom);
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, ROUND_ID)).thenReturn(Optional.empty());
+        when(applicationRepository.existsByRound_IdAndInstagramId(ROUND_ID, "yu.festa")).thenReturn(false);
+        when(applicationRepository.saveAndFlush(any(Application.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ApplicationResponse response = applicationService.apply(USER_ID, requestWithSlot(4L));
+
+        assertThat(response.wantedSlot().id()).isEqualTo(4L);
+        assertThat(response.wantedSlot().stageName()).isEqualTo("중앙 무대");
+        assertThat(response.needsSlotReselect()).isFalse();
+    }
+
+    @Test
+    void 공연_규칙에_어긋나면_저장_전에_APPLICATION_SLOT_NOT_SELECTABLE다() {
+        givenOpenRoundAndUser();
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, ROUND_ID)).thenReturn(Optional.empty());
+        when(applicationRepository.existsByRound_IdAndInstagramId(ROUND_ID, "yu.festa")).thenReturn(false);
+        when(wantedSlotService.requireSelectable(round, 3L))
+                .thenThrow(new CustomException(ErrorCode.APPLICATION_SLOT_NOT_SELECTABLE));
+
+        assertError(() -> applicationService.apply(USER_ID, requestWithSlot(3L)), ErrorCode.APPLICATION_SLOT_NOT_SELECTABLE);
+        verify(applicationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void 수정_시_공연을_바꾸거나_null로_해제한다() {
+        Application mine = application("yu.festa");
+        mine.changeWantedSlot(slot(4L, CLOSE_AT.plusMinutes(25)));
+        when(matchRoundService.getCurrentRound()).thenReturn(round);
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, ROUND_ID)).thenReturn(Optional.of(mine));
+        when(applicationRepository.saveAndFlush(any(Application.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(wantedSlotService.requireSelectable(round, null)).thenReturn(null);
+
+        ApplicationResponse response = applicationService.update(USER_ID, UpdateApplicationRequest.builder()
+                .instagramId("yu.festa").nickname("수달").gender(Gender.F).tags(Set.of(MatchTag.MUSIC)).wantedSlotId(null)
+                .build());
+
+        assertThat(mine.getWantedSlot()).isNull();
+        assertThat(response.wantedSlot()).isNull();
+    }
+
+    @Test
+    void 재참여_복사_시_원본_공연이_현재_회차_발표_전_시작이면_비우고_재선택_표시를_준다() {
+        MatchRound published = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(NOW.minusHours(2)).publishAt(NOW.minusHours(1)).build();
+        ReflectionTestUtils.setField(published, "id", 9L);
+        // 2회차 발표 20:00. 원본이 고른 HIPCOM(16:15)은 그 전이라 따라오지 않는다
+        MatchRound current = MatchRound.builder().seq(2).openAt(NOW.minusHours(1)).closeAt(CLOSE_AT.plusHours(4)).publishAt(CLOSE_AT.plusHours(4).plusMinutes(10)).build();
+        current.open();
+        ReflectionTestUtils.setField(current, "id", 10L);
+        Application source = application("mine");
+        ReflectionTestUtils.setField(source, "id", 55L);
+        source.changeWantedSlot(slot(4L, CLOSE_AT.plusMinutes(25)));
+        givenRejoinable(published, current, source);
+
+        ApplicationResponse response = applicationService.rejoin(USER_ID);
+
+        assertThat(response.wantedSlot()).isNull();
+        assertThat(response.needsSlotReselect()).isTrue();
+    }
+
+    @Test
+    void 재참여_복사_시_원본_공연이_현재_회차_발표_이후_시작이면_그대로_따라온다() {
+        MatchRound published = MatchRound.builder().seq(1).openAt(NOW.minusDays(7)).closeAt(NOW.minusHours(2)).publishAt(NOW.minusHours(1)).build();
+        ReflectionTestUtils.setField(published, "id", 9L);
+        MatchRound current = MatchRound.builder().seq(2).openAt(NOW.minusHours(1)).closeAt(CLOSE_AT.plusHours(4)).publishAt(CLOSE_AT.plusHours(4).plusMinutes(10)).build();
+        current.open();
+        ReflectionTestUtils.setField(current, "id", 10L);
+        Application source = application("mine");
+        ReflectionTestUtils.setField(source, "id", 55L);
+        source.changeWantedSlot(slot(13L, CLOSE_AT.plusHours(5).plusMinutes(40)));
+        givenRejoinable(published, current, source);
+
+        ApplicationResponse response = applicationService.rejoin(USER_ID);
+
+        assertThat(response.wantedSlot().id()).isEqualTo(13L);
+        assertThat(response.needsSlotReselect()).isFalse();
+    }
+
+    private void givenRejoinable(MatchRound published, MatchRound current, Application source) {
+        when(userService.getUser(USER_ID)).thenReturn(user);
+        when(matchRoundService.getCurrentRound()).thenReturn(current);
+        when(matchRoundService.findLatestPublishedRound()).thenReturn(Optional.of(published));
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, published.getId())).thenReturn(Optional.of(source));
+        when(matchRepository.existsByApplication_Id(source.getId())).thenReturn(true);
+        when(applicationRepository.findByUser_IdAndRound_Id(USER_ID, current.getId())).thenReturn(Optional.empty());
+        when(applicationRepository.existsByRound_IdAndInstagramId(current.getId(), "mine")).thenReturn(false);
+        when(applicationRepository.saveAndFlush(any(Application.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private static ApplyMatchRequest requestWithSlot(Long wantedSlotId) {
+        return ApplyMatchRequest.builder()
+                .instagramId("yu.festa").nickname("펭귄").gender(Gender.F).tags(Set.of(MatchTag.MUSIC))
+                .wantedSlotId(wantedSlotId).termsVersion("v1").privacyVersion("v1").ageConfirmed(true)
+                .build();
+    }
+
+    private static TimetableSlot slot(Long id, LocalDateTime startAt) {
+        Place stage = Place.builder()
+                .name("중앙 무대").category(PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210")).longitude(new BigDecimal("128.7542100"))
+                .sortOrder(0).active(true)
+                .build();
+        ReflectionTestUtils.setField(stage, "id", 1L);
+        TimetableSlot slot = TimetableSlot.builder()
+                .sortOrder(id.intValue()).title("공연 " + id).slotType(SlotType.CLUB)
+                .startAt(startAt).endAt(startAt.plusMinutes(30)).stage(stage)
+                .build();
+        ReflectionTestUtils.setField(slot, "id", id);
+        return slot;
     }
 
     private void givenOpenRoundAndUser() {

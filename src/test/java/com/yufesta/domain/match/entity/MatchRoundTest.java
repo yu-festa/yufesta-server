@@ -55,6 +55,15 @@ class MatchRoundTest {
         assertThat(round.isAcceptingAt(CLOSE_AT.minusHours(1))).isFalse();
     }
 
+    @Test
+    void 보고_싶은_공연은_발표_시각_이후_시작만_허용한다() {
+        MatchRound round = round();
+
+        assertThat(round.allowsWantedSlot(PUBLISH_AT.minusMinutes(1))).isFalse();
+        assertThat(round.allowsWantedSlot(PUBLISH_AT)).isTrue();
+        assertThat(round.allowsWantedSlot(PUBLISH_AT.plusHours(2))).isTrue();
+    }
+
     private static MatchRound round() {
         return MatchRound.builder().seq(1).openAt(OPEN_AT).closeAt(CLOSE_AT).publishAt(PUBLISH_AT).build();
     }

@@ -11,6 +11,7 @@ import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.MatchTag;
 import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
+import com.yufesta.domain.timetable.entity.TimetableSlot;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.time.Clock;
@@ -39,6 +40,7 @@ public class ApplicationService {
     private final MatchRepository matchRepository;
     private final MatchRoundService matchRoundService;
     private final UserService userService;
+    private final WantedSlotService wantedSlotService;
     private final Clock clock;
 
     public ApplicationService(
@@ -46,21 +48,24 @@ public class ApplicationService {
             MatchRepository matchRepository,
             MatchRoundService matchRoundService,
             UserService userService,
+            WantedSlotService wantedSlotService,
             Clock clock
     ) {
         this.applicationRepository = applicationRepository;
         this.matchRepository = matchRepository;
         this.matchRoundService = matchRoundService;
         this.userService = userService;
+        this.wantedSlotService = wantedSlotService;
         this.clock = clock;
     }
 
     /**
      * 현재 회차에 신청한다. 취소했던 신청이 있으면 새 행 대신 그 행을 되살린다.
      * <p>검증: 회차 접수 중(FR-MT-02), 매칭 차단 회원 아님(FR-MT-41), 동의 3종(FR-MT-11),
-     * 회차당 1건·인스타 ID 회차 내 유니크(FR-MT-13). 인스타 ID는 정규화 후 저장한다.
+     * 회차당 1건·인스타 ID 회차 내 유니크(FR-MT-13), 보고 싶은 공연은 발표 이후 시작(FR-MT-05). 인스타 ID는 정규화 후 저장한다.
      * @throws CustomException UNAUTHORIZED, USER_NOT_FOUND, USER_MATCHING_BLOCKED, MATCH_ROUND_NOT_OPEN,
-     *         INVALID_INPUT_VALUE, APPLICATION_ALREADY_EXISTS, APPLICATION_INSTAGRAM_DUPLICATE
+     *         INVALID_INPUT_VALUE, APPLICATION_ALREADY_EXISTS, APPLICATION_INSTAGRAM_DUPLICATE,
+     *         TIMETABLE_SLOT_NOT_FOUND, APPLICATION_SLOT_NOT_SELECTABLE
      */
     @Transactional
     public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
@@ -76,10 +81,11 @@ public class ApplicationService {
             throw new CustomException(ErrorCode.APPLICATION_ALREADY_EXISTS);
         }
         requireInstagramAvailable(round, instagramId, mine.orElse(null));
+        TimetableSlot wantedSlot = wantedSlotService.requireSelectable(round, request.wantedSlotId());
 
         Application application = mine
-                .map(canceled -> reapply(canceled, request, instagramId, now))
-                .orElseGet(() -> newApplication(user, round, request, instagramId, now));
+                .map(canceled -> reapply(canceled, request, instagramId, wantedSlot, now))
+                .orElseGet(() -> newApplication(user, round, request, instagramId, wantedSlot, now));
         return ApplicationResponse.from(saveAndTranslate(application));
     }
 
@@ -94,9 +100,9 @@ public class ApplicationService {
     }
 
     /**
-     * 현재 회차의 내 신청을 수정한다. 인스타 ID 유니크를 다시 검사한다(FR-MT-14).
+     * 현재 회차의 내 신청을 수정한다. 인스타 ID 유니크와 공연 규칙을 다시 검사한다(FR-MT-14, FR-MT-05).
      * @throws CustomException UNAUTHORIZED, MATCH_ROUND_NOT_OPEN, APPLICATION_NOT_FOUND, INVALID_INPUT_VALUE,
-     *         APPLICATION_INSTAGRAM_DUPLICATE
+     *         APPLICATION_INSTAGRAM_DUPLICATE, TIMETABLE_SLOT_NOT_FOUND, APPLICATION_SLOT_NOT_SELECTABLE
      */
     @Transactional
     public ApplicationResponse update(Long userId, UpdateApplicationRequest request) {
@@ -114,6 +120,7 @@ public class ApplicationService {
                 tagsOf(request.tags()),
                 request.intro()
         );
+        application.changeWantedSlot(wantedSlotService.requireSelectable(round, request.wantedSlotId()));
         return ApplicationResponse.from(saveAndTranslate(application));
     }
 
@@ -131,7 +138,7 @@ public class ApplicationService {
 
     /**
      * 이전 회차에 매칭된 사람이 현재 회차에 다시 참여한다(FR-MT-03). 최근 발표 회차의 내 신청을 REJOIN으로 복사한다.
-     * 취소했던 현재 회차 신청이 있으면 새 행 대신 그 행을 되살린다.
+     * 취소했던 현재 회차 신청이 있으면 새 행 대신 그 행을 되살린다. 보고 싶은 공연은 현재 회차 규칙에 맞을 때만 따라온다(FR-MT-05).
      * <p>검증: 매칭 차단 아님, 현재 회차 접수 중, 최근 발표 회차에서 매칭됨, 현재 회차 유효 신청 없음, 인스타 ID 유니크.
      * @throws CustomException UNAUTHORIZED, USER_NOT_FOUND, USER_MATCHING_BLOCKED, MATCH_ROUND_NOT_OPEN,
      *         MATCH_RESULT_NOT_PUBLISHED, MATCH_NOT_FOUND, APPLICATION_ALREADY_EXISTS, APPLICATION_INSTAGRAM_DUPLICATE
@@ -151,9 +158,18 @@ public class ApplicationService {
         requireInstagramAvailable(current, source.getInstagramId(), mine.orElse(null));
 
         Application application = mine
-                .map(canceled -> restoreFrom(canceled, source, now))
+                .map(canceled -> restoreFrom(canceled, source, current, now))
                 .orElseGet(() -> copyOf(source, user, current, EntryType.REJOIN));
         return ApplicationResponse.from(saveAndTranslate(application));
+    }
+
+    /**
+     * 공연이 삭제될 때 그 공연을 고른 신청의 선택만 비운다. 신청 자체는 남는다.
+     * <p>타임테이블 운영자 서비스가 삭제 직전에 호출한다(H2 테스트 스키마엔 FK SET NULL이 없어 코드로).
+     */
+    @Transactional
+    public void detachWantedSlot(Long slotId) {
+        applicationRepository.detachWantedSlot(slotId);
     }
 
     // 재참여 대상: 최근 발표 회차에서 매칭된 내 신청. 미매칭자는 발표 때 이미 이월됐으므로 대상이 아니다
@@ -167,7 +183,7 @@ public class ApplicationService {
         return source;
     }
 
-    private static Application restoreFrom(Application canceled, Application source, LocalDateTime now) {
+    private static Application restoreFrom(Application canceled, Application source, MatchRound current, LocalDateTime now) {
         canceled.restore();
         canceled.update(
                 source.getInstagramId(),
@@ -177,6 +193,7 @@ public class ApplicationService {
                 source.getTags(),
                 source.getIntro()
         );
+        canceled.changeWantedSlot(source.wantedSlotFor(current));
         canceled.agree(source.getTermsVersion(), source.getPrivacyVersion(), source.isAgeConfirmed(), now);
         return canceled;
     }
@@ -191,6 +208,7 @@ public class ApplicationService {
                 .ageBand(source.getAgeBand())
                 .tags(source.getTags())
                 .intro(source.getIntro())
+                .wantedSlot(source.wantedSlotFor(round))
                 .entryType(entryType)
                 .sourceApplication(source)
                 .termsVersion(source.getTermsVersion())
@@ -264,6 +282,7 @@ public class ApplicationService {
             MatchRound round,
             ApplyMatchRequest request,
             String instagramId,
+            TimetableSlot wantedSlot,
             LocalDateTime now
     ) {
         return Application.builder()
@@ -275,6 +294,7 @@ public class ApplicationService {
                 .ageBand(request.ageBand())
                 .tags(tagsOf(request.tags()))
                 .intro(request.intro())
+                .wantedSlot(wantedSlot)
                 .termsVersion(request.termsVersion())
                 .privacyVersion(request.privacyVersion())
                 .ageConfirmed(request.ageConfirmed())
@@ -287,6 +307,7 @@ public class ApplicationService {
             Application canceled,
             ApplyMatchRequest request,
             String instagramId,
+            TimetableSlot wantedSlot,
             LocalDateTime now
     ) {
         canceled.restore();
@@ -298,6 +319,7 @@ public class ApplicationService {
                 tagsOf(request.tags()),
                 request.intro()
         );
+        canceled.changeWantedSlot(wantedSlot);
         canceled.agree(request.termsVersion(), request.privacyVersion(), request.ageConfirmed(), now);
         return canceled;
     }

@@ -34,8 +34,27 @@ public enum ErrorCode {
     PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다."),
     PLACE_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_EVENT_NOT_FOUND", "장소 이벤트를 찾을 수 없습니다."),
 
+    // 타임테이블
+    TIMETABLE_SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_SLOT_NOT_FOUND", "공연을 찾을 수 없습니다."),
+    TIMETABLE_INVALID_TIME(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME", "종료 시각은 시작 시각보다 뒤여야 합니다."),
+    TIMETABLE_STAGE_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_STAGE_INVALID", "무대로 지정할 수 없는 장소입니다."),
+    TIMETABLE_ORDER_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_ORDER_INVALID", "순서 목록에 모든 공연이 한 번씩 있어야 합니다."),
+
+    // 라인업
+    CLUB_NOT_FOUND(HttpStatus.NOT_FOUND, "CLUB_NOT_FOUND", "동아리를 찾을 수 없습니다."),
+
     // 공지
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "공지를 찾을 수 없습니다."),
+
+    // 분실물
+    LOST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_NOT_FOUND", "분실물 게시글을 찾을 수 없습니다."),
+
+    // 콘텐츠 신고
+    CONTENT_REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_TARGET_NOT_FOUND", "신고할 콘텐츠를 찾을 수 없습니다."),
+    CONTENT_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_NOT_FOUND", "콘텐츠 신고 내역을 찾을 수 없습니다."),
+    CONTENT_NOT_REPORTABLE(HttpStatus.BAD_REQUEST, "CONTENT_NOT_REPORTABLE", "신고할 수 없는 콘텐츠입니다."),
+    CONTENT_REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "CONTENT_REPORT_ALREADY_EXISTS", "이미 신고한 콘텐츠입니다."),
+    CHEER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHEER_NOT_FOUND", "응원 메시지를 찾을 수 없습니다."),
 
     // 인스타팅
     MATCH_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_ROUND_NOT_FOUND", "회차를 찾을 수 없습니다."),
@@ -45,6 +64,7 @@ public enum ErrorCode {
     APPLICATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "APPLICATION_ALREADY_EXISTS", "이미 이번 회차에 신청했어요."),
     APPLICATION_INSTAGRAM_DUPLICATE(HttpStatus.CONFLICT, "APPLICATION_INSTAGRAM_DUPLICATE", "이미 등록된 인스타그램 아이디예요."),
     APPLICATION_INVALID_TAG(HttpStatus.BAD_REQUEST, "APPLICATION_INVALID_TAG", "선택할 수 없는 태그예요."),
+    APPLICATION_SLOT_NOT_SELECTABLE(HttpStatus.BAD_REQUEST, "APPLICATION_SLOT_NOT_SELECTABLE", "이번 회차에서는 고를 수 없는 공연이에요."),
     USER_MATCHING_BLOCKED(HttpStatus.FORBIDDEN, "USER_MATCHING_BLOCKED", "인스타팅 참여가 제한된 계정이에요."),
     MATCH_RESULT_NOT_PUBLISHED(HttpStatus.CONFLICT, "MATCH_RESULT_NOT_PUBLISHED", "아직 결과 발표 전이에요."),
     MATCH_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_NOT_FOUND", "매칭 결과를 찾을 수 없습니다."),

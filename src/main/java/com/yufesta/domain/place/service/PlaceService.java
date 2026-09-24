@@ -140,6 +140,14 @@ public class PlaceService {
         return PlaceEventResponse.from(placeEvent);
     }
 
+    /**
+     * 다른 도메인이 장소를 연관으로 쓸 때 엔티티를 준다(타임테이블의 무대 등). 비노출 장소도 포함한다.
+     * @throws CustomException PLACE_NOT_FOUND
+     */
+    public Place getPlaceEntity(Long placeId) {
+        return getPlaceOrThrow(placeId);
+    }
+
     private List<Place> getActivePlaces(PlaceCategory category) {
         if (category == null) {
             return placeRepository.findAllByActiveTrueOrderBySortOrderAscNameAsc();

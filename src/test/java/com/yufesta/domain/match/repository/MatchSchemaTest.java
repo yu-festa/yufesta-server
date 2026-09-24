@@ -14,6 +14,10 @@ import com.yufesta.domain.match.enums.BlockDecision;
 import com.yufesta.domain.match.enums.BlockReason;
 import com.yufesta.domain.match.enums.Gender;
 import com.yufesta.domain.match.enums.MatchTag;
+import com.yufesta.domain.place.entity.Place;
+import com.yufesta.domain.place.enums.PlaceCategory;
+import com.yufesta.domain.timetable.entity.TimetableSlot;
+import com.yufesta.domain.timetable.enums.SlotType;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
@@ -197,6 +201,31 @@ class MatchSchemaTest {
         assertThat(matchRepository.deleteAllByRoundId(round.getId())).isEqualTo(2);
         assertThat(matchRepository.countByRound_Id(round.getId())).isZero();
         assertThat(blockRepository.findAllUserIdPairs()).isEmpty();
+    }
+
+    @Test
+    void 보고_싶은_공연을_저장하고_공연_삭제_전_일괄_해제로_비운다() {
+        Place stage = em.persist(Place.builder()
+                .name("중앙 무대").category(PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210")).longitude(new BigDecimal("128.7542100"))
+                .sortOrder(0).active(true)
+                .build());
+        TimetableSlot slot = em.persist(TimetableSlot.builder()
+                .sortOrder(4).title("HIPCOM").slotType(SlotType.CLUB)
+                .startAt(NOW.plusDays(3).plusHours(1)).endAt(NOW.plusDays(3).plusHours(2)).stage(stage)
+                .build());
+        Application application = application(alice, "alice");
+        application.changeWantedSlot(slot);
+        Long applicationId = applicationRepository.save(application).getId();
+        em.flush();
+        em.clear();
+
+        assertThat(applicationRepository.findById(applicationId).orElseThrow().getWantedSlot().getTitle()).isEqualTo("HIPCOM");
+
+        int detached = applicationRepository.detachWantedSlot(slot.getId());
+
+        assertThat(detached).isEqualTo(1);
+        assertThat(applicationRepository.findById(applicationId).orElseThrow().getWantedSlot()).isNull();
     }
 
     private long countTagRows(Long applicationId) {

@@ -54,4 +54,14 @@ public class Cheer extends BaseTimeEntity {
         this.reportCount = 0;
         this.hidden = false;
     }
+
+    /** 신고 누적 또는 운영자 조치로 공개 목록에서 숨긴다. */
+    public void hide() {
+        this.hidden = true;
+    }
+
+    /** 운영자 판단에 따라 숨긴 메시지를 다시 공개한다. */
+    public void restore() {
+        this.hidden = false;
+    }
 }

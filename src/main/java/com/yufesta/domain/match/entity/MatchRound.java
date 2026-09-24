@@ -70,6 +70,14 @@ public class MatchRound extends BaseTimeEntity {
     }
 
     // 결과 노출 기준은 status가 아니라 published_at(FR-MT-04)
+    /**
+     * 이 회차 신청에서 고를 수 있는 공연인지: 발표 시각 이후에 시작하는 공연만(FR-MT-05).
+     * 신청·수정·이월 복사·배치 재검증이 전부 이 규칙 하나를 쓴다. 지연 전 원래 시작 시각 기준
+     */
+    public boolean allowsWantedSlot(LocalDateTime slotStartAt) {
+        return !slotStartAt.isBefore(publishAt);
+    }
+
     public boolean isPublished() {
         return publishedAt != null;
     }

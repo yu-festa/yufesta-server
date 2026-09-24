@@ -20,6 +20,7 @@ import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.BlockRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.match.repository.MatchRoundRepository;
+import com.yufesta.domain.timetable.entity.TimetableSlot;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -123,7 +124,7 @@ public class MatchRoundBatchService {
     private RoundBatchResultResponse runBatch(MatchRound round) {
         List<Application> pool = applicationRepository.findPoolByRoundId(round.getId());
         List<MatchResult> results = engine.match(
-                pool.stream().map(MatchRoundBatchService::toCandidate).toList(),
+                pool.stream().map(application -> toCandidate(application, round)).toList(),
                 excludedPairs(round),
                 weights(),
                 appSettingReader.getInt(SettingKey.MATCH_MAX_PARTNERS)
@@ -163,14 +164,15 @@ public class MatchRoundBatchService {
                 .build();
     }
 
-    // 보고 싶은 공연은 타임테이블 엔티티 연동 전이라 아직 점수에 넣지 않는다
-    private static Candidate toCandidate(Application application) {
+    // 보고 싶은 공연은 배치 시점에 회차 규칙(FR-MT-05)을 다시 검사해 통과한 것만 점수에 쓴다(타임테이블 변경 대비)
+    private static Candidate toCandidate(Application application, MatchRound round) {
+        TimetableSlot wantedSlot = application.wantedSlotFor(round);
         return Candidate.builder()
                 .applicationId(application.getId())
                 .userId(application.getUser().getId())
                 .gender(application.getGender())
                 .tags(application.getTags())
-                .wantedSlotId(null)
+                .wantedSlotId(wantedSlot == null ? null : wantedSlot.getId())
                 .ageBand(application.getAgeBand())
                 .entryType(application.getEntryType())
                 .build();
@@ -209,6 +211,7 @@ public class MatchRoundBatchService {
                 .ageBand(source.getAgeBand())
                 .tags(source.getTags())
                 .intro(source.getIntro())
+                .wantedSlot(source.wantedSlotFor(next))
                 .entryType(EntryType.CARRIED)
                 .sourceApplication(source)
                 .termsVersion(source.getTermsVersion())

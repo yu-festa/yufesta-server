@@ -5,6 +5,7 @@ import com.yufesta.domain.match.enums.AgeBand;
 import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.Gender;
 import com.yufesta.domain.match.enums.MatchTag;
+import com.yufesta.domain.timetable.entity.TimetableSlot;
 import com.yufesta.domain.user.entity.User;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -32,7 +33,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 인스타팅 신청. 회원당 회차 1건, 인스타 ID는 회차 내 유니크(FR-MT-13). 취소는 canceled_at 소프트 삭제.
- * 보고 싶은 공연(wanted_slot_id)은 타임테이블 엔티티가 준비되면 매핑한다
+ * 보고 싶은 공연(wantedSlot)은 회차 발표 이후 시작 공연만 허용하며(FR-MT-05) 검증은 서비스가 한다
  */
 @Getter
 @Entity
@@ -79,6 +80,11 @@ public class Application extends BaseTimeEntity {
     @Column(length = 40)
     private String intro;
 
+    // 보고 싶은 공연(선택). 공연이 삭제되면 비워진다(FK SET NULL·ApplicationRepository.detachWantedSlot)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "wanted_slot_id")
+    private TimetableSlot wantedSlot;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private EntryType entryType;
@@ -118,6 +124,7 @@ public class Application extends BaseTimeEntity {
             AgeBand ageBand,
             Set<MatchTag> tags,
             String intro,
+            TimetableSlot wantedSlot,
             EntryType entryType,
             Application sourceApplication,
             String termsVersion,
@@ -133,6 +140,7 @@ public class Application extends BaseTimeEntity {
         this.ageBand = ageBand;
         this.tags = tags == null ? new HashSet<>() : new HashSet<>(tags);
         this.intro = intro;
+        this.wantedSlot = wantedSlot;
         this.entryType = entryType == null ? EntryType.NEW : entryType;
         this.sourceApplication = sourceApplication;
         this.termsVersion = termsVersion;
@@ -161,6 +169,16 @@ public class Application extends BaseTimeEntity {
         this.tags.clear();
         this.tags.addAll(tags);
         this.intro = intro;
+    }
+
+    /** 다른 회차로 복사(이월·재참여)하거나 배치가 점수에 쓸 때: 그 회차 규칙(FR-MT-05)을 만족하면 공연, 아니면 null */
+    public TimetableSlot wantedSlotFor(MatchRound target) {
+        return wantedSlot != null && target.allowsWantedSlot(wantedSlot.getStartAt()) ? wantedSlot : null;
+    }
+
+    // 보고 싶은 공연 변경(null이면 선택 없음). 회차 규칙 검증은 서비스에서 끝내고 들어온다
+    public void changeWantedSlot(TimetableSlot wantedSlot) {
+        this.wantedSlot = wantedSlot;
     }
 
     // 재신청 시 동의를 다시 기록한다(FR-MT-11·12)

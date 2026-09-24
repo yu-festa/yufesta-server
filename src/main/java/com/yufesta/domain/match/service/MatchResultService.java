@@ -67,7 +67,7 @@ public class MatchResultService {
                 .collect(Collectors.toSet());
         List<PartnerCardResponse> partners = matches.stream()
                 .filter(match -> !reportedUserIds.contains(match.getPartnerApplication().getUser().getId()))
-                .map(match -> PartnerCardResponse.of(match, mine.getTags()))
+                .map(match -> PartnerCardResponse.of(match, mine))
                 .toList();
 
         // 매칭 여부는 신고로 카드가 빠져도 바뀌지 않는다. 미매칭자만 이월 대상이기 때문

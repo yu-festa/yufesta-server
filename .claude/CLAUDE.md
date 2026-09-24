@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.2)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.3)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql`, `V4__club_initial.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
@@ -53,7 +53,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
 - 인프라: `infra/terraform`(Terraform, 소마 계정 서울 리전, 전용 IAM 사용자 프로필 `yufesta`). 절차는 `infra/README.md`. `terraform plan/apply`와 AWS 자격 증명은 사람이 다루고 Claude는 파일만 쓴다. 기존 운영 인프라는 조회도 하지 않는다
-- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
+- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차, V3 무대·공연 13건, V4 동아리 9건)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
 
@@ -320,7 +320,7 @@ denyAll     : anyRequest
 - 회원당 회차 1건(`uk_app_user_round`), 인스타 ID 회차 내 유니크(`uk_app_round_insta`). 인스타 ID 정규화: trim → 선행 `@` 제거 → 소문자 → `^[a-z0-9._]{1,30}$` 검사. 닉네임 2~8자, 성별 M/F 필수, 태그 ≤3(고정 10개 목록 외 거부), 소개 ≤40자.
 - 동의 없이는 저장 불가: `terms_version`, `privacy_version`, `age_confirmed=1`, `agreed_at` 기록(FR-MT-11·12).
 - `matching_blocked_at`이 있는 회원은 신청 거부(`USER_MATCHING_BLOCKED`).
-- **보고 싶은 공연(FR-MT-05)**: `slot.start_at >= round.publish_at`인 공연만 허용. 신청·수정 시 검증하고, 배치에서도 재검증해 위반 슬롯은 점수 계산에서 제외(타임테이블 변경 대비).
+- **보고 싶은 공연(FR-MT-05)**: `slot.start_at >= round.publish_at`인 공연만 허용(구분 무관, 지연 전 원래 시각 기준). 신청·수정 시 검증하고, 배치에서도 재검증해 위반 슬롯은 점수 계산에서 제외(타임테이블 변경 대비). 구현: 규칙은 `MatchRound.allowsWantedSlot` 한 곳, 복사·배치는 `Application.wantedSlotFor(round)`, 신청·수정 검증과 선택지 목록(`GET /api/v1/match/slots`)은 `WantedSlotService`. 공연 삭제 시 `ApplicationService.detachWantedSlot`이 선택만 비운다(`TimetableAdminService.delete`가 호출). 복사본의 재선택 안내는 `ApplicationResponse.needsSlotReselect`(원본엔 공연이 있고 지금은 없으면 true, 별도 컬럼 없음). 상대 카드는 `wantedSlot`·`sameSlot`.
 - **이월 모델(FR-MT-03)**: 회차 발표 트랜잭션에서 미매칭 신청을 다음 회차 행으로 복사(`entry_type = CARRIED`, `source_application_id` = 원본, 태그 포함, `wanted_slot_id`는 FR-MT-05 조건을 만족할 때만 유지). 1회차 매칭자의 "2회차도 참여"도 같은 복사(`REJOIN`, `POST /api/v1/match/applications/rejoin`). 이미 직접 신청한 사용자는 `uk_app_user_round`로 건너뛴다. `join_next_round` 컬럼은 없다. 복사 후 사용자는 2회차 신청 수정 화면(`PATCH /applications/me`)에서 내용을 확인·수정한다. 프론트는 재참여 201 응답 직후와 이월 안내(FR-MT-35)에서 이 화면을 미리 채운 상태로 연다. 타임테이블 연동 시 복사되는 `wanted_slot_id`가 조건을 어기면 `null`로 비우고 응답에 재선택 필요 표시를 넣는다.
 - 배치 풀 = `round_id = 해당 회차 AND canceled_at IS NULL AND users.matching_blocked_at IS NULL`. 이전 회차를 조회하지 않는다.
 - 점수 = 공통 태그 × `match.weight.tag` + 같은 공연 × `match.weight.slot` + 나이대 동일 × `match.weight.age_same` 또는 인접 × `match.weight.age_adjacent`. 가중치는 `AppSettingReader`로 읽는다. 하드코딩 금지.
@@ -337,12 +337,15 @@ denyAll     : anyRequest
 **타임테이블 `timetable`** (FR-TT)
 - 공개 응답에 계산 필드 포함: `effectiveStartAt = start_at + delay_minutes`, `isLive`, `isChanged(changed_from_start != null)`. LIVE 판정: `is_live_override = 1`인 슬롯이 있으면 그것만, 없으면 `effectiveStartAt ≤ now < end_at + delay`.
 - 운영자 시간 변경 시 최초 1회만 `changed_from_start`에 원래 시각을 기록(덮어쓰지 않음). override는 한 번에 한 슬롯만(다른 슬롯은 해제).
+- 구분 `slot_type`은 CLUB/GUEST/EVENT(개회식·연설·가요제). 출연 동아리는 `@ManyToOne Club`(nullable)이고 공개 응답은 `club{id,name}`, 운영자 요청은 `clubId`를 `ClubService.getClubEntity`로 검증. 무대는 `PlaceService.getPlaceEntity`로 받아 STAGE만 허용(`TIMETABLE_STAGE_INVALID`).
+- 운영자 API(`/api/v1/admin/timetable`): 목록·등록·수정·삭제, `/{id}/times`(변경 기록), `/{id}/delay`, `/{id}/live`, `PUT /order`(모든 ID를 한 번씩, 아니면 `TIMETABLE_ORDER_INVALID`). 초기 공연 13건은 V3 마이그레이션이 넣고 이후 변경은 이 API로.
 
 **지도 `place`** (FR-MAP)
 - 카테고리 `STAGE/BOOTH/TOILET/AMENITY/INFO`. 공개 목록은 `is_active = 1`만. 거리 계산은 클라이언트(위치는 서버에 오지 않는다, NFR-SC-06). 화장실 목록 기본 정렬은 이름순.
 
 **라인업 `club`**, **공지 `notice`**, **축제 사진 `photo`**
 - 등록·수정은 운영자만. 공개 목록은 `sort_order`, 공지는 최신순. 긴급 배너는 `is_banner = 1` 중 최신 1건.
+- 라인업 카드의 공연 시간·무대는 타임테이블에서 붙인다(`TimetableService.getSlotsWithClub()`을 한 번 읽어 동아리별로 묶음). 서비스 의존은 한 방향만: `ClubService → TimetableService`, `TimetableAdminService → ClubService`, `ClubAdminService → TimetableAdminService`(삭제 전 `detachClub`, H2엔 FK SET NULL이 없어 코드로 끊는다). `photo_url`은 S3 업로드 API 전까지 운영자가 URL 문자열로 넣는다. 초기 동아리 9건은 V4.
 - 사진 업로드: multipart, 장당 10MB 이하, 다중. 서버가 긴 변 1600px 리사이즈본과 썸네일을 만들고 원본은 별도 보관(FR-PH-05). EXIF 회전 반영. S3 키 `photos/{yyyyMMdd}/{uuid}-{original|1600|thumb}.jpg`. 응답 URL은 CloudFront 도메인.
 
 **분실물 `lostitem`, 응원 메시지 `cheer`** (FR-LF, FR-CH, FR-AN, FR-CF)
@@ -367,6 +370,7 @@ denyAll     : anyRequest
 | 메서드·경로 | 설명 | 인증 |
 |---|---|---|
 | GET /api/v1/match/summary | 홈 인스타팅 블록 | 선택 |
+| GET /api/v1/match/slots | 현재 회차에서 고를 수 있는 공연(발표 이후 시작) | - |
 | POST /api/v1/match/applications | 신청 | 필수 |
 | GET / PATCH / DELETE /api/v1/match/applications/me | 내 신청 조회·수정·취소 | 필수 |
 | POST /api/v1/match/applications/rejoin | 2회차 재참여(1회차 신청 복사, FR-MT-03) | 필수 |
