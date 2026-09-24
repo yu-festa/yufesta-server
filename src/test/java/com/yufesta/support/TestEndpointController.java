@@ -39,11 +39,6 @@ public class TestEndpointController {
         return body;
     }
 
-    @PostMapping("/api/v1/cheers")
-    public String anonymousCheerWrite() {
-        return "ok";
-    }
-
     @DeleteMapping("/api/v1/cheers/{id}")
     public String anonymousCheerDelete() {
         return "ok";

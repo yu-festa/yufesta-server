@@ -14,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yufesta.common.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
+import com.yufesta.domain.cheer.dto.response.CheerResponse;
+import com.yufesta.domain.cheer.service.CheerService;
 import com.yufesta.domain.match.dto.response.AdminMatchRoundResponse;
 import com.yufesta.domain.match.enums.RoundStatus;
 import com.yufesta.domain.match.service.MatchRoundBatchService;
@@ -48,6 +50,9 @@ class SecurityConfigTest {
     // 발표 경로는 실제 AdminMatchController가 처리하므로 서비스만 mock으로 대체한다
     @MockitoBean
     private MatchRoundBatchService matchRoundBatchService;
+
+    @MockitoBean
+    private CheerService cheerService;
 
     @Test
     void 공개_읽기_API는_비로그인으로_접근할_수_있다() throws Exception {
@@ -115,8 +120,13 @@ class SecurityConfigTest {
 
     @Test
     void 응원_메시지_작성과_삭제는_비로그인으로_허용된다() throws Exception {
-        mockMvc.perform(post("/api/v1/cheers").with(csrf()))
-                .andExpect(status().isOk());
+        org.mockito.Mockito.when(cheerService.create(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(CheerResponse.builder().id(1L).content("축제 파이팅!").displayName("신난 수달").mine(true).build());
+
+        mockMvc.perform(post("/api/v1/cheers").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\": \"축제 파이팅!\"}"))
+                .andExpect(status().isCreated());
         mockMvc.perform(delete("/api/v1/cheers/1").with(csrf()))
                 .andExpect(status().isOk());
     }

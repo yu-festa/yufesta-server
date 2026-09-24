@@ -3,6 +3,8 @@ package com.yufesta.domain.match.repository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.yufesta.common.config.ClockConfig;
+import com.yufesta.common.config.JpaConfig;
 import com.yufesta.domain.match.entity.Application;
 import com.yufesta.domain.match.entity.Block;
 import com.yufesta.domain.match.entity.Match;
@@ -27,6 +29,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
 
 /**
  * 인스타팅 테이블 매핑과 DB 제약을 H2(MySQL 모드)로 고정. 유니크 제약은 신청·신고의 동시성 방어선이다
@@ -34,6 +37,7 @@ import org.springframework.test.context.ActiveProfiles;
 @DataJpaTest
 @ActiveProfiles("test")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import({JpaConfig.class, ClockConfig.class})
 class MatchSchemaTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 5, 12, 0);
