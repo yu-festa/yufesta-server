@@ -10,7 +10,9 @@ import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
+import com.yufesta.domain.lostitem.dto.request.CreateOfficialLostItemRequest;
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
+import com.yufesta.domain.lostitem.dto.request.UpdateLostItemVisibilityRequest;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.enums.LostItemKind;
@@ -121,9 +123,74 @@ class LostItemServiceTest {
         assertThat(lostItem.isHidden()).isTrue();
     }
 
+    @Test
+    void 운영자가_안내소_습득물을_공식_게시글로_등록한다() {
+        User admin = org.mockito.Mockito.mock(User.class);
+        when(userService.getUser(7L)).thenReturn(admin);
+        when(lostItemRepository.save(any(LostItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LostItemResponse result = lostItemService.createOfficial(7L, officialRequest());
+
+        assertThat(result)
+                .extracting(LostItemResponse::kind, LostItemResponse::displayName)
+                .containsExactly(LostItemKind.FOUND, LostItem.OFFICIAL_DISPLAY_NAME);
+        ArgumentCaptor<LostItem> captor = ArgumentCaptor.forClass(LostItem.class);
+        verify(lostItemRepository).save(captor.capture());
+        assertThat(captor.getValue())
+                .extracting(LostItem::isOfficial, LostItem::getAuthor, LostItem::getModerationStatus)
+                .containsExactly(true, admin, ModerationStatus.PASSED);
+    }
+
+    @Test
+    void 운영자가_분실물_게시글을_해결_처리한다() {
+        LostItem lostItem = lostItem(1L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+
+        LostItemResponse result = lostItemService.resolveByAdmin(3L, 1L);
+
+        assertThat(result.status()).isEqualTo(LostItemStatus.RESOLVED);
+    }
+
+    @Test
+    void 운영자가_일반_분실물_게시글을_숨기고_복구한다() {
+        LostItem lostItem = lostItem(1L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+
+        lostItemService.updateVisibility(3L, 1L, new UpdateLostItemVisibilityRequest(true));
+        assertThat(lostItem.isHidden()).isTrue();
+
+        lostItemService.updateVisibility(3L, 1L, new UpdateLostItemVisibilityRequest(false));
+        assertThat(lostItem.isHidden()).isFalse();
+    }
+
+    @Test
+    void 운영자는_공식_안내소_게시글을_숨기지_않는다() {
+        User admin = org.mockito.Mockito.mock(User.class);
+        LostItem officialLostItem = LostItem.official(
+                admin,
+                "검은색 카드지갑",
+                "중앙도서관 앞",
+                LocalDateTime.of(2026, 10, 2, 14, 0)
+        );
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(officialLostItem));
+
+        assertThatThrownBy(() -> lostItemService.updateVisibility(3L, 1L, new UpdateLostItemVisibilityRequest(true)))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+    }
+
     private static CreateLostItemRequest request() {
         return CreateLostItemRequest.builder()
                 .kind(LostItemKind.FOUND)
+                .description(" 검은색 카드지갑 ")
+                .placeText(" 중앙도서관 앞 ")
+                .occurredAt(LocalDateTime.of(2026, 10, 2, 14, 0))
+                .build();
+    }
+
+    private static CreateOfficialLostItemRequest officialRequest() {
+        return CreateOfficialLostItemRequest.builder()
                 .description(" 검은색 카드지갑 ")
                 .placeText(" 중앙도서관 앞 ")
                 .occurredAt(LocalDateTime.of(2026, 10, 2, 14, 0))

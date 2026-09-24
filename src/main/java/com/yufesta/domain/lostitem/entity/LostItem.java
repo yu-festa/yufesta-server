@@ -29,6 +29,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LostItem extends BaseTimeEntity {
 
+    public static final String OFFICIAL_DISPLAY_NAME = "종합 안내소";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -96,13 +98,32 @@ public class LostItem extends BaseTimeEntity {
         return !official && author != null && author.getId().equals(userId);
     }
 
+    /** 안내소가 보관 중인 습득물을 공식 게시글로 등록한다(FR-LF-06). */
+    public static LostItem official(User author, String description, String placeText, LocalDateTime occurredAt) {
+        LostItem lostItem = new LostItem(
+                LostItemKind.FOUND,
+                description,
+                placeText,
+                occurredAt,
+                OFFICIAL_DISPLAY_NAME,
+                author
+        );
+        lostItem.official = true;
+        return lostItem;
+    }
+
     /** 작성자가 물품 인계 또는 탐색 완료를 표시한다. */
     public void resolve() {
         this.status = LostItemStatus.RESOLVED;
     }
 
-    /** 작성자 삭제 또는 운영자 조치로 공개 목록에서 숨긴다. */
+    /** 일반 사용자 게시글을 공개 목록에서 숨긴다. */
     public void hide() {
         this.hidden = true;
+    }
+
+    /** 일반 사용자 게시글을 다시 공개 목록에 노출한다. */
+    public void restore() {
+        this.hidden = false;
     }
 }
