@@ -12,7 +12,10 @@ import jakarta.validation.constraints.Min;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,5 +38,21 @@ public interface LostItemApi {
     ResponseEntity<ApiResponse<LostItemResponse>> createLostItem(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CreateLostItemRequest request
+    );
+
+    @Operation(summary = "내 분실물 해결 처리", description = "작성자 본인이 자신의 게시글을 해결 처리한다. CSRF 토큰이 필요하다. FR-LF-05")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "LOST_ITEM_NOT_FOUND")
+    @PatchMapping("/{lostItemId}/resolve")
+    ApiResponse<LostItemResponse> resolveLostItem(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @PathVariable Long lostItemId
+    );
+
+    @Operation(summary = "내 분실물 삭제", description = "작성자 본인이 자신의 게시글을 소프트 삭제한다. CSRF 토큰이 필요하다. FR-LF-05")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "LOST_ITEM_NOT_FOUND")
+    @DeleteMapping("/{lostItemId}")
+    ResponseEntity<Void> deleteLostItem(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @PathVariable Long lostItemId
     );
 }
