@@ -48,3 +48,32 @@ resource "aws_route53_record" "api" {
     evaluate_target_health = true
   }
 }
+
+# 프론트(Vercel). 값은 Vercel 프로젝트 → Settings → Domains 화면이 알려 준 것. 바뀌면 변수만 고쳐 apply
+variable "frontend_apex_ip" {
+  description = "yufesta.com(루트) A 레코드 대상. Vercel이 지정한 IP"
+  type        = string
+  default     = "216.198.79.1"
+}
+
+variable "frontend_www_cname" {
+  description = "www.yufesta.com CNAME 대상. Vercel이 지정한 호스트"
+  type        = string
+  default     = "343298af56c319d6.vercel-dns-017.com"
+}
+
+resource "aws_route53_record" "frontend_apex" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = 300
+  records = [var.frontend_apex_ip]
+}
+
+resource "aws_route53_record" "frontend_www" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "www.${var.domain_name}"
+  type    = "CNAME"
+  ttl     = 300
+  records = [var.frontend_www_cname]
+}

@@ -43,7 +43,7 @@ variable "frontend_url" {
 variable "allowed_origins" {
   description = "CORS 허용 origin 목록(ALLOWED_ORIGINS). 운영 도메인과 Vercel 프리뷰"
   type        = list(string)
-  default     = ["https://yufesta.com", "https://yufesta-web.vercel.app"]
+  default     = ["https://yufesta.com", "https://www.yufesta.com", "https://yufesta-web.vercel.app"]
 }
 
 variable "cookie_domain" {
