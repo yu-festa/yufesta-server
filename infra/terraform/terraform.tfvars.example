@@ -8,6 +8,6 @@ alarm_email = "you@example.com"
 # 축제 전에는 운영 Swagger를 끈다
 # swagger_enabled = false
 
-# 도메인·origin 기본값은 variables.tf. 바꿀 때만 적는다
-# domain_name     = "yufesta.com"
-# allowed_origins = ["https://yufesta.com", "https://yufesta-web.vercel.app"]
+# 도메인·origin 기본값은 variables.tf. 바꿀 때만 적는다.
+# 프론트가 로컬(5173)에서 운영 API의 공개 읽기 API를 호출하려면 아래처럼 localhost를 더한다. 축제 전에는 뺀다
+# allowed_origins = ["https://yufesta.com", "https://www.yufesta.com", "https://yufesta-web.vercel.app", "http://localhost:5173"]
