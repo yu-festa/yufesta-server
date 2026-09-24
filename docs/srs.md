@@ -198,8 +198,8 @@
 
 | ID | 요구사항 | 우선 |
 |---|---|---|
-| FR-MAP-01 | 카카오맵 위에 장소 핀을 표시한다. 카테고리: 무대, 부스, 화장실, 편의(편의점·분리수거), 응급·안내 | M |
-| FR-MAP-02 | 지도 상단에 카테고리 선택(전체 / 무대 / 부스 / 화장실 / 편의 / 응급·안내)을 제공한다. 카테고리를 선택하면 **해당 카테고리의 핀만** 표시하고 나머지는 숨긴다. 기본값은 전체 | M |
+| FR-MAP-01 | 카카오맵 위에 장소 핀을 표시한다. 카테고리: 공연장, 화장실, 배달존 | M |
+| FR-MAP-02 | 지도 상단에 카테고리 선택(전체 / 공연장 / 화장실 / 배달존)을 제공한다. 카테고리를 선택하면 **해당 카테고리의 핀만** 표시하고 나머지는 숨긴다. 기본값은 전체 | M |
 | FR-MAP-03 | 핀 선택 시 이름·설명·장소에 연결된 이벤트를 바텀시트로 표시한다 | M |
 | FR-MAP-04 | 카카오맵 로드 실패(키 오류·네트워크·5초 타임아웃) 시 캠퍼스 일러스트 지도로 자동 전환하며 카테고리 선택·핀·시트가 동일하게 동작한다 | M |
 | FR-MAP-05 | "내 위치" 버튼으로 현재 위치를 파란 점과 정확도 원으로 표시한다. 권한은 버튼을 누를 때만 요청하고, 위치는 단말에서만 사용하며 서버에 전송하지 않는다 | M |
@@ -377,7 +377,7 @@
 | Block | id, reporterUserId, targetUserId, roundId, reason, detail?, createdAt, reviewedAt?, decision? | 매칭 신고·차단. 대상별 누적 수로 자동 제재 판정 |
 | TimetableSlot | id, order, startTime, endTime, stageId(→Place), clubId?(→Club), type(club/guest), changedFrom?, delayMinutes?, isLiveOverride? | 공연 |
 | Club | id, name, intro, genre, signatureSong?, instagramUrl?, photoUrl?, createdBy | 라인업 카드 |
-| Place | id, name, category(stage/booth/toilet/amenity/info), lat, lng, description, building?, floor?, activeEvents[] | 지도 핀. 화장실은 toilet |
+| Place | id, name, category(stage/toilet/delivery_zone), lat, lng, description, building?, floor?, activeEvents[] | 지도 핀. 카테고리별 단일 선택 필터 |
 | FestivalPhoto | id, imageUrl(리사이즈), originalUrl, thumbnailUrl, caption?, category(stage/booth/scene/campus), placeId?(→Place), clubId?(→Club), sortOrder, uploadedBy(→AdminUser), hidden, createdAt | 운영진 게시 축제 사진. 개인정보 아님 |
 | Notice | id, title, body, isBanner, createdBy, createdAt, updatedAt | 운영자 공지 |
 | LostItem | id, kind(found/lost), description, place, occurredAt, status(open/resolved), displayName, authorUserId?, isOfficial, moderationStatus(passed/skipped), reportCount, hidden, createdAt | 분실물 게시. displayName = 자동 생성 닉네임(운영자 등록은 "종합 안내소") |
@@ -461,7 +461,7 @@
 | 신청 취소·수정 (회의 후) | 마감 전 필수 제공 | 오입력 정정 수요 |
 | 홈 인스타팅 블록 (회의 후) | 카운트다운 중심 블록 도입, 서버 시각 기준 | 사용자 대부분이 홈에서 대기. 기기 시계 오차 방지 |
 | 축제 사진 (회의 후) | 운영진·관계자 게시형으로 도입. 사용자 업로드는 계속 제외 | 무대·부스·현장 홍보 수요. 검수·초상권 리스크 없이 시각 콘텐츠 확보 |
-| 지도 카테고리 (회의 후) | 단일 선택 카테고리로 해당 핀만 표시, 화장실은 독립 카테고리 | "화장실 어디예요"에 한 번의 탭으로 답하기 위함 |
+| 지도 카테고리 (회의 후) | 단일 선택 카테고리(공연장·화장실·배달존)로 해당 핀만 표시 | 현장에 필요한 핵심 위치를 한 번의 탭으로 찾기 위함 |
 | 응원 메시지 비로그인 작성 (2차 회의) | **로그인 없이 작성**. 작성자는 익명 키 해시로만 기록, 속도 제한·콘텐츠 필터·운영자 일괄 숨김으로 관리 | 40자 티커라 위험도가 낮고 참여 장벽을 낮추는 효과가 큼. 분실물·신고는 로그인 유지 |
 | 콘텐츠 필터 (2차 회의) | 정규식·금칙어에 **LLM 모더레이션 API(OpenAI Moderation)** 병행, 실패 시 fail-open + 검토 목록 | 무료 엔드포인트라 500명 규모에서 비용 부담 없음. 한국어 비속어 변형을 목록만으로 못 잡음. 연락처 패턴은 정규식이 담당 |
 | 회차 시각 (2차 회의) | 1회차 접수 사전 오픈~15:50, 발표 **16:00** / 2회차 접수 16:00~19:50, 발표 **20:00** | 1회차를 미리 받아 신청자 수 확보. 2회차는 후반 공연·뒤풀이 전 |
@@ -532,3 +532,4 @@ score(a, b) =
 | v1.4 | 2026-09-14 | 자동 생성 닉네임(FR-AN), 지도 카테고리 단일 선택·화장실 독립 카테고리, 화장실 용품 정보 제외, 축제 사진(3.10) 정식 편입, 팀 수정 사항 정합성 정리 |
 | v1.5 | 2026-09-14 | **구글 로그인 정식 도입(M)**, **1:N 자동 배정(옵트인 제거)**, 태그 가중치 ×1, 신고 누적 시 신청 삭제·이후 차단, 취소·수정 필수(M) 및 마감 후 차단 명시, **홈 카운트다운 블록(FR-MT-50~56)**, 콘텐츠 신고 누적 자동 숨김, User를 provider/providerUserId로 일반화 |
 | v1.6 | 2026-09-17 | 2차 회의(9/16) 반영: **응원 메시지 비로그인 작성**(익명 키), **콘텐츠 필터 3.11 신설**(정규식·금칙어·LLM 모더레이션 API), **회차 시각 16:00/20:00 및 1회차 사전 접수**, **회차별 보고 싶은 공연 제한(FR-MT-05)**, 이월·재참여를 2회차 신청 자동 생성 모델로 변경, 운영 타임라인·엔티티·파기 대상 갱신 |
+| v1.7 | 2026-09-24 | 지도 장소 카테고리를 **공연장·화장실·배달존**으로 개편하고 기존 부스·편의·안내 카테고리 제거 |

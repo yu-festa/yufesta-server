@@ -1,6 +1,10 @@
-# YU FESTA ERD 설명서 v1.3
+# YU FESTA ERD 설명서 v1.4
 
-기준: SRS v1.6 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+기준: SRS v1.7 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+
+v1.4 변경 요약 (2026-09-24, 지도 장소 카테고리 개편)
+- **장소 카테고리 통일**: `places.category`를 `STAGE`(공연장) / `TOILET`(화장실) / `DELIVERY_ZONE`(배달존) 세 값으로 정리
+- **기존 데이터 안전 전환**: V5에서 기존 `BOOTH`·`AMENITY`·`INFO` 행은 `DELIVERY_ZONE`으로 정규화하되, 실제 배달존 확인 전까지 비노출 처리
 
 v1.3 변경 요약 (2026-09-24, 총동연 타임라인 반영)
 - **타임테이블 구분 확장**: `timetable_slots.slot_type`에 `EVENT` 추가(개회식·총장님 연설·가요제처럼 출연 동아리가 없는 순서)
@@ -97,7 +101,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 |---|---|---|---|---|
 | id | 장소 ID | BIGINT UNSIGNED | N | PK. `?focus=` 파라미터 값 |
 | name | 장소명 | VARCHAR(50) | N | 핀·시트 제목 |
-| category | 카테고리 | VARCHAR(10) | N | `STAGE` / `BOOTH` / `TOILET` / `AMENITY` / `INFO` |
+| category | 카테고리 | VARCHAR(20) | N | `STAGE`(공연장) / `TOILET`(화장실) / `DELIVERY_ZONE`(배달존) |
 | lat | 위도 | DECIMAL(10,7) | N | 카카오맵 좌표. 현장 조사로 수집 |
 | lng | 경도 | DECIMAL(10,7) | N | |
 | description | 설명 | VARCHAR(200) | Y | 바텀시트 본문 |
@@ -400,3 +404,4 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | v1.1 | 2026-09-15 | admin_users 제거, `users.role`로 통합 |
 | v1.2 | 2026-09-17 | 응원 메시지 비로그인(작성자 FK 제거, 익명 키 해시), 필터 상태 컬럼, 이월 신청 자동 생성(`entry_type`·`source_application_id`), 회차 초기값 16:00/20:00, `matching_blocked_at`·VARCHAR(1)·감사 시각 통일·대문자 열거형(스프링 엔티티 정합), 설정 키 6종 추가 |
 | v1.3 | 2026-09-24 | `timetable_slots.slot_type`에 `EVENT` 추가, 타임테이블 초기 데이터(V3: 무대 1·공연 13) |
+| v1.4 | 2026-09-24 | `places.category`를 공연장·화장실·배달존으로 개편하고 V5에서 기존 카테고리를 안전하게 비노출 전환 |
