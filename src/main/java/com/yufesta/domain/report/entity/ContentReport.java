@@ -63,4 +63,9 @@ public class ContentReport extends BaseTimeEntity {
         this.reporter = reporter;
         this.reason = reason;
     }
+
+    /** 운영자가 신고를 확인한 시각을 기록한다. */
+    public void review(LocalDateTime reviewedAt) {
+        this.reviewedAt = reviewedAt;
+    }
 }

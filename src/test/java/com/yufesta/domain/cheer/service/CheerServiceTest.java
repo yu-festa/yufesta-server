@@ -10,6 +10,8 @@ import com.yufesta.common.nickname.NicknameGenerator;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
+import com.yufesta.domain.cheer.dto.request.UpdateCheerVisibilityRequest;
+import com.yufesta.domain.cheer.dto.response.AdminCheerResponse;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
@@ -97,6 +99,19 @@ class CheerServiceTest {
 
         verify(cheerRepository).incrementReportCount(1L);
         assertThat(cheer.isHidden()).isTrue();
+    }
+
+    @Test
+    void 운영자는_응원_메시지를_숨기고_복구할_수_있다() {
+        Cheer cheer = cheer(1L, "축제 최고예요!", "신난 수달", "writer-hash", LocalDateTime.of(2026, 10, 2, 15, 0));
+        when(cheerRepository.findById(1L)).thenReturn(Optional.of(cheer));
+
+        AdminCheerResponse hidden = cheerService.updateVisibility(1L, new UpdateCheerVisibilityRequest(true));
+        assertThat(hidden.hidden()).isTrue();
+        assertThat(hidden.reportCount()).isZero();
+
+        AdminCheerResponse restored = cheerService.updateVisibility(1L, new UpdateCheerVisibilityRequest(false));
+        assertThat(restored.hidden()).isFalse();
     }
 
     private Cheer cheer(Long id, String content, String displayName, String writerKeyHash, LocalDateTime createdAt) {

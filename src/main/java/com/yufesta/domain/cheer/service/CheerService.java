@@ -4,9 +4,12 @@ import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
+import com.yufesta.domain.cheer.dto.request.UpdateCheerVisibilityRequest;
+import com.yufesta.domain.cheer.dto.response.AdminCheerResponse;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
 import com.yufesta.domain.cheer.repository.CheerRepository;
+import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -54,6 +57,24 @@ public class CheerService {
         return CheerResponse.from(cheerRepository.save(cheer), writerKeyHash);
     }
 
+    /** 운영자가 응원 메시지를 숨기거나 다시 공개한다(FR-ADM-04). */
+    @Transactional
+    public AdminCheerResponse updateVisibility(Long cheerId, UpdateCheerVisibilityRequest request) {
+        Cheer cheer = getCheerOrThrow(cheerId);
+        if (request.hidden()) {
+            cheer.hide();
+        } else {
+            cheer.restore();
+        }
+        return AdminCheerResponse.from(cheer);
+    }
+
+    /** 운영자 신고 목록에 대상 응원 메시지의 현재 상태를 제공한다. */
+    public ContentTargetStatus getTargetStatusForAdmin(Long cheerId) {
+        Cheer cheer = getCheerOrThrow(cheerId);
+        return new ContentTargetStatus(cheer.getReportCount(), cheer.isHidden());
+    }
+
     /**
      * 콘텐츠 신고 전 대상 응원 메시지를 잠그고 신고 가능 여부를 확인한다.
      * <p>잠금은 상위 신고 트랜잭션이 끝날 때까지 유지된다.
@@ -83,5 +104,10 @@ public class CheerService {
     private Cheer getCheerForUpdate(Long cheerId) {
         return cheerRepository.findByIdForUpdate(cheerId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CONTENT_REPORT_TARGET_NOT_FOUND));
+    }
+
+    private Cheer getCheerOrThrow(Long cheerId) {
+        return cheerRepository.findById(cheerId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHEER_NOT_FOUND));
     }
 }

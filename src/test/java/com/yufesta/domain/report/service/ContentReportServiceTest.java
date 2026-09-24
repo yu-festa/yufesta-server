@@ -15,13 +15,18 @@ import com.yufesta.domain.appsetting.service.AppSettingReader;
 import com.yufesta.domain.cheer.service.CheerService;
 import com.yufesta.domain.lostitem.service.LostItemService;
 import com.yufesta.domain.report.dto.request.CreateContentReportRequest;
+import com.yufesta.domain.report.dto.response.AdminContentReportResponse;
 import com.yufesta.domain.report.dto.response.ContentReportResponse;
+import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.report.entity.ContentReport;
 import com.yufesta.domain.report.enums.ContentTargetType;
 import com.yufesta.domain.report.repository.ContentReportRepository;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +54,9 @@ class ContentReportServiceTest {
 
     @Mock
     private AppSettingReader appSettingReader;
+
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private ContentReportService contentReportService;
@@ -137,6 +145,50 @@ class ContentReportServiceTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 
+    @Test
+    void 운영자는_대상유형과_검토여부로_콘텐츠_신고를_조회한다() {
+        ContentReport report = report(5L, ContentTargetType.CHEER, 10L, reporter(7L));
+        when(contentReportRepository.findAllByTargetTypeAndReviewedAtIsNullOrderByCreatedAtDesc(
+                org.mockito.ArgumentMatchers.eq(ContentTargetType.CHEER), any()))
+                .thenReturn(List.of(report));
+        when(cheerService.getTargetStatusForAdmin(10L)).thenReturn(new ContentTargetStatus(2, true));
+
+        List<AdminContentReportResponse> result = contentReportService.getReports(false, ContentTargetType.CHEER, 0, 20);
+
+        assertThat(result).singleElement()
+                .extracting(
+                        AdminContentReportResponse::id,
+                        AdminContentReportResponse::reporterUserId,
+                        AdminContentReportResponse::targetReportCount,
+                        AdminContentReportResponse::targetHidden
+                )
+                .containsExactly(5L, 7L, 2, true);
+    }
+
+    @Test
+    void 운영자가_콘텐츠_신고를_검토하면_검토시각을_기록한다() {
+        ContentReport report = report(5L, ContentTargetType.LOST_ITEM, 10L, reporter(7L));
+        when(contentReportRepository.findById(5L)).thenReturn(java.util.Optional.of(report));
+        when(lostItemService.getTargetStatusForAdmin(10L)).thenReturn(new ContentTargetStatus(1, false));
+        LocalDateTime now = LocalDateTime.of(2026, 10, 3, 10, 0);
+        when(clock.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
+        when(clock.instant()).thenReturn(now.atZone(ZoneId.of("Asia/Seoul")).toInstant());
+
+        AdminContentReportResponse result = contentReportService.review(5L);
+
+        assertThat(report.getReviewedAt()).isEqualTo(now);
+        assertThat(result.reviewedAt()).isEqualTo(now);
+        assertThat(result.targetReportCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 운영자_신고_목록의_페이지_범위가_올바르지_않으면_오류다() {
+        assertThatThrownBy(() -> contentReportService.getReports(null, null, -1, 20))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
     private static CreateContentReportRequest cheerRequest() {
         return new CreateContentReportRequest(ContentTargetType.CHEER, 1L, " 부적절한 내용 ");
     }
@@ -153,6 +205,18 @@ class ContentReportServiceTest {
 
     private static ContentReport saved(ContentReport report) {
         ReflectionTestUtils.setField(report, "id", 1L);
+        ReflectionTestUtils.setField(report, "createdAt", LocalDateTime.of(2026, 10, 2, 14, 0));
+        return report;
+    }
+
+    private static ContentReport report(Long id, ContentTargetType targetType, Long targetId, User reporter) {
+        ContentReport report = ContentReport.builder()
+                .targetType(targetType)
+                .targetId(targetId)
+                .reporter(reporter)
+                .reason("부적절한 내용")
+                .build();
+        ReflectionTestUtils.setField(report, "id", id);
         ReflectionTestUtils.setField(report, "createdAt", LocalDateTime.of(2026, 10, 2, 14, 0));
         return report;
     }
