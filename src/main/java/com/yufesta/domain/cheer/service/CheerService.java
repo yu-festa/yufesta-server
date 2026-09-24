@@ -4,6 +4,8 @@ import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
+import com.yufesta.domain.cheer.dto.request.UpdateCheerVisibilityRequest;
+import com.yufesta.domain.cheer.dto.response.AdminCheerResponse;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
 import com.yufesta.domain.cheer.repository.CheerRepository;
@@ -53,6 +55,18 @@ public class CheerService {
                 .writerKeyHash(writerKeyHash)
                 .build();
         return CheerResponse.from(cheerRepository.save(cheer), writerKeyHash);
+    }
+
+    /** 운영자가 응원 메시지를 숨기거나 다시 공개한다(FR-ADM-04). */
+    @Transactional
+    public AdminCheerResponse updateVisibility(Long cheerId, UpdateCheerVisibilityRequest request) {
+        Cheer cheer = getCheerOrThrow(cheerId);
+        if (request.hidden()) {
+            cheer.hide();
+        } else {
+            cheer.restore();
+        }
+        return AdminCheerResponse.from(cheer);
     }
 
     /** 운영자 신고 목록에 대상 응원 메시지의 현재 상태를 제공한다. */
