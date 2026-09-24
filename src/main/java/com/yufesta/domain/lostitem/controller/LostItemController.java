@@ -31,4 +31,15 @@ public class LostItemController implements LostItemApi {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "분실물 게시글을 등록했습니다.", lostItem));
     }
+
+    @Override
+    public ApiResponse<LostItemResponse> resolveLostItem(Long userId, Long lostItemId) {
+        return ApiResponse.success(lostItemService.resolve(userId, lostItemId));
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteLostItem(Long userId, Long lostItemId) {
+        lostItemService.delete(userId, lostItemId);
+        return ResponseEntity.noContent().build();
+    }
 }

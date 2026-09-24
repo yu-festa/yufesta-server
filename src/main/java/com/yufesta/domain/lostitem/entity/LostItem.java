@@ -90,4 +90,19 @@ public class LostItem extends BaseTimeEntity {
         this.reportCount = 0;
         this.hidden = false;
     }
+
+    /** 일반 사용자 작성글의 소유자를 확인한다. */
+    public boolean isOwnedBy(Long userId) {
+        return !official && author != null && author.getId().equals(userId);
+    }
+
+    /** 작성자가 물품 인계 또는 탐색 완료를 표시한다. */
+    public void resolve() {
+        this.status = LostItemStatus.RESOLVED;
+    }
+
+    /** 작성자 삭제 또는 운영자 조치로 공개 목록에서 숨긴다. */
+    public void hide() {
+        this.hidden = true;
+    }
 }

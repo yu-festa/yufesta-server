@@ -4,7 +4,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -78,6 +80,29 @@ class LostItemControllerTest extends ControllerTestSupport {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
     }
 
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 작성자가_분실물_게시글을_해결_처리한다() throws Exception {
+        when(lostItemService.resolve(7L, 1L)).thenReturn(resolvedResponse());
+
+        mockMvc.perform(patch("/api/v1/lost-items/1/resolve").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("RESOLVED"));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 작성자가_분실물_게시글을_삭제한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/lost-items/1").with(csrf()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void 비로그인_사용자가_분실물_게시글을_해결_처리하면_401이다() throws Exception {
+        mockMvc.perform(patch("/api/v1/lost-items/1/resolve").with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
     private static LostItemResponse response() {
         return LostItemResponse.builder()
                 .id(1L)
@@ -86,6 +111,18 @@ class LostItemControllerTest extends ControllerTestSupport {
                 .placeText("중앙도서관 앞")
                 .occurredAt(LocalDateTime.of(2026, 10, 2, 14, 0))
                 .status(LostItemStatus.OPEN)
+                .displayName("씩씩한 판다")
+                .createdAt(LocalDateTime.of(2026, 10, 2, 14, 5))
+                .build();
+    }
+
+    private static LostItemResponse resolvedResponse() {
+        return LostItemResponse.builder()
+                .id(1L)
+                .kind(LostItemKind.FOUND)
+                .description("검은색 카드지갑")
+                .placeText("중앙도서관 앞")
+                .status(LostItemStatus.RESOLVED)
                 .displayName("씩씩한 판다")
                 .createdAt(LocalDateTime.of(2026, 10, 2, 14, 5))
                 .build();
