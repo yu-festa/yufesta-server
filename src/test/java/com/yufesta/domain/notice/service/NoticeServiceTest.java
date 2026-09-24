@@ -8,9 +8,14 @@ import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
+import com.yufesta.domain.notice.dto.request.CreateNoticeRequest;
 import com.yufesta.domain.notice.dto.response.NoticeResponse;
 import com.yufesta.domain.notice.entity.Notice;
 import com.yufesta.domain.notice.repository.NoticeRepository;
+import com.yufesta.domain.user.entity.User;
+import com.yufesta.domain.user.enums.OAuthProvider;
+import com.yufesta.domain.user.enums.UserRole;
+import com.yufesta.domain.user.service.UserService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +31,9 @@ class NoticeServiceTest {
 
     @Mock
     private NoticeRepository noticeRepository;
+
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private NoticeService noticeService;
@@ -64,6 +72,22 @@ class NoticeServiceTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOTICE_NOT_FOUND));
     }
 
+    @Test
+    void 운영자가_공지_등록하면_작성자로_저장한다() {
+        User admin = admin(7L);
+        when(userService.getUser(7L)).thenReturn(admin);
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        NoticeResponse result = noticeService.create(7L, new CreateNoticeRequest("우천 시 공연 안내", "우천 시 공연장 안내입니다.", true));
+
+        assertThat(result)
+                .extracting(NoticeResponse::title, NoticeResponse::body, NoticeResponse::banner)
+                .containsExactly("우천 시 공연 안내", "우천 시 공연장 안내입니다.", true);
+        org.mockito.ArgumentCaptor<Notice> captor = org.mockito.ArgumentCaptor.forClass(Notice.class);
+        verify(noticeRepository).save(captor.capture());
+        assertThat(captor.getValue().getCreatedBy()).isSameAs(admin);
+    }
+
     private Notice notice(Long id, String title, boolean banner, LocalDateTime createdAt) {
         Notice notice = Notice.builder()
                 .title(title)
@@ -74,5 +98,16 @@ class NoticeServiceTest {
         ReflectionTestUtils.setField(notice, "id", id);
         ReflectionTestUtils.setField(notice, "createdAt", createdAt);
         return notice;
+    }
+
+    private User admin(Long id) {
+        User user = User.builder()
+                .provider(OAuthProvider.KAKAO)
+                .providerUserId("admin-provider-id")
+                .role(UserRole.STAFF)
+                .loginAt(LocalDateTime.of(2026, 10, 2, 14, 0))
+                .build();
+        ReflectionTestUtils.setField(user, "id", id);
+        return user;
     }
 }
