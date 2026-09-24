@@ -110,6 +110,25 @@ class NoticeServiceTest {
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOTICE_NOT_FOUND));
     }
 
+    @Test
+    void 운영자가_공지를_삭제한다() {
+        Notice notice = notice(1L, "축제 안내", false, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+
+        noticeService.delete(7L, 1L);
+
+        verify(noticeRepository).delete(notice);
+    }
+
+    @Test
+    void 없는_공지를_삭제하면_예외가_발생한다() {
+        when(noticeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> noticeService.delete(7L, 999L))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOTICE_NOT_FOUND));
+    }
+
     private Notice notice(Long id, String title, boolean banner, LocalDateTime createdAt) {
         Notice notice = Notice.builder()
                 .title(title)

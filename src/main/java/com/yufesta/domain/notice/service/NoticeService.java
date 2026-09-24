@@ -75,6 +75,17 @@ public class NoticeService {
         return NoticeResponse.from(notice);
     }
 
+    /**
+     * 운영자 공지를 물리 삭제한다(FR-NT-01).
+     * <p>공지는 다른 도메인에서 참조하지 않아 삭제 후 연결 데이터가 남지 않는다.
+     * @throws CustomException UNAUTHORIZED, NOTICE_NOT_FOUND
+     */
+    @Transactional
+    public void delete(Long userId, Long noticeId) {
+        requireLogin(userId);
+        noticeRepository.delete(getNoticeOrThrow(noticeId));
+    }
+
     private Notice getNoticeOrThrow(Long noticeId) {
         return noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTICE_NOT_FOUND));
