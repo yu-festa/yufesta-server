@@ -49,4 +49,10 @@ public class Notice extends BaseTimeEntity {
         this.banner = banner;
         this.createdBy = createdBy;
     }
+
+    public void update(String title, String body, boolean banner) {
+        this.title = title;
+        this.body = body;
+        this.banner = banner;
+    }
 }
