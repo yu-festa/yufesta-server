@@ -40,6 +40,9 @@ public enum ErrorCode {
     TIMETABLE_STAGE_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_STAGE_INVALID", "무대로 지정할 수 없는 장소입니다."),
     TIMETABLE_ORDER_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_ORDER_INVALID", "순서 목록에 모든 공연이 한 번씩 있어야 합니다."),
 
+    // 라인업
+    CLUB_NOT_FOUND(HttpStatus.NOT_FOUND, "CLUB_NOT_FOUND", "동아리를 찾을 수 없습니다."),
+
     // 공지
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "공지를 찾을 수 없습니다."),
 

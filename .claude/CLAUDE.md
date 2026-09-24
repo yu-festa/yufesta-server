@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql`, `V4__club_initial.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
@@ -53,7 +53,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
 - 인프라: `infra/terraform`(Terraform, 소마 계정 서울 리전, 전용 IAM 사용자 프로필 `yufesta`). 절차는 `infra/README.md`. `terraform plan/apply`와 AWS 자격 증명은 사람이 다루고 Claude는 파일만 쓴다. 기존 운영 인프라는 조회도 하지 않는다
-- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차, V3 무대·공연 13건)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
+- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차, V3 무대·공연 13건, V4 동아리 9건)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
 
@@ -337,7 +337,7 @@ denyAll     : anyRequest
 **타임테이블 `timetable`** (FR-TT)
 - 공개 응답에 계산 필드 포함: `effectiveStartAt = start_at + delay_minutes`, `isLive`, `isChanged(changed_from_start != null)`. LIVE 판정: `is_live_override = 1`인 슬롯이 있으면 그것만, 없으면 `effectiveStartAt ≤ now < end_at + delay`.
 - 운영자 시간 변경 시 최초 1회만 `changed_from_start`에 원래 시각을 기록(덮어쓰지 않음). override는 한 번에 한 슬롯만(다른 슬롯은 해제).
-- 구분 `slot_type`은 CLUB/GUEST/EVENT(개회식·연설·가요제). `club_id`는 라인업 도메인이 생기기 전이라 엔티티에 `Long clubId`로 둔다. 무대는 `PlaceService.getPlaceEntity`로 받아 STAGE만 허용(`TIMETABLE_STAGE_INVALID`).
+- 구분 `slot_type`은 CLUB/GUEST/EVENT(개회식·연설·가요제). 출연 동아리는 `@ManyToOne Club`(nullable)이고 공개 응답은 `club{id,name}`, 운영자 요청은 `clubId`를 `ClubService.getClubEntity`로 검증. 무대는 `PlaceService.getPlaceEntity`로 받아 STAGE만 허용(`TIMETABLE_STAGE_INVALID`).
 - 운영자 API(`/api/v1/admin/timetable`): 목록·등록·수정·삭제, `/{id}/times`(변경 기록), `/{id}/delay`, `/{id}/live`, `PUT /order`(모든 ID를 한 번씩, 아니면 `TIMETABLE_ORDER_INVALID`). 초기 공연 13건은 V3 마이그레이션이 넣고 이후 변경은 이 API로.
 
 **지도 `place`** (FR-MAP)
@@ -345,6 +345,7 @@ denyAll     : anyRequest
 
 **라인업 `club`**, **공지 `notice`**, **축제 사진 `photo`**
 - 등록·수정은 운영자만. 공개 목록은 `sort_order`, 공지는 최신순. 긴급 배너는 `is_banner = 1` 중 최신 1건.
+- 라인업 카드의 공연 시간·무대는 타임테이블에서 붙인다(`TimetableService.getSlotsWithClub()`을 한 번 읽어 동아리별로 묶음). 서비스 의존은 한 방향만: `ClubService → TimetableService`, `TimetableAdminService → ClubService`, `ClubAdminService → TimetableAdminService`(삭제 전 `detachClub`, H2엔 FK SET NULL이 없어 코드로 끊는다). `photo_url`은 S3 업로드 API 전까지 운영자가 URL 문자열로 넣는다. 초기 동아리 9건은 V4.
 - 사진 업로드: multipart, 장당 10MB 이하, 다중. 서버가 긴 변 1600px 리사이즈본과 썸네일을 만들고 원본은 별도 보관(FR-PH-05). EXIF 회전 반영. S3 키 `photos/{yyyyMMdd}/{uuid}-{original|1600|thumb}.jpg`. 응답 URL은 CloudFront 도메인.
 
 **분실물 `lostitem`, 응원 메시지 `cheer`** (FR-LF, FR-CH, FR-AN, FR-CF)

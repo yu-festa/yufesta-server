@@ -1,6 +1,7 @@
 package com.yufesta.domain.timetable.entity;
 
 import com.yufesta.common.entity.BaseTimeEntity;
+import com.yufesta.domain.club.entity.Club;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.timetable.enums.SlotType;
 import jakarta.persistence.Column;
@@ -58,9 +59,10 @@ public class TimetableSlot extends BaseTimeEntity {
     @JoinColumn(name = "stage_place_id", nullable = false)
     private Place stage;
 
-    // 라인업(clubs) 도메인이 아직 없어 연관 대신 ID만 둔다. 도메인이 생기면 @ManyToOne Club으로 바꾼다
-    @Column(name = "club_id")
-    private Long clubId;
+    // 출연 동아리. EVENT·GUEST는 null. 동아리가 삭제되면 detachClub()으로 비운다
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "club_id")
+    private Club club;
 
     @Column(name = "changed_from_start")
     private LocalDateTime changedFromStart;
@@ -79,7 +81,7 @@ public class TimetableSlot extends BaseTimeEntity {
             LocalDateTime startAt,
             LocalDateTime endAt,
             Place stage,
-            Long clubId
+            Club club
     ) {
         this.sortOrder = sortOrder;
         this.title = title;
@@ -87,14 +89,19 @@ public class TimetableSlot extends BaseTimeEntity {
         this.startAt = startAt;
         this.endAt = endAt;
         this.stage = stage;
-        this.clubId = clubId;
+        this.club = club;
     }
 
-    public void update(String title, SlotType slotType, Place stage, Long clubId) {
+    public void update(String title, SlotType slotType, Place stage, Club club) {
         this.title = title;
         this.slotType = slotType;
         this.stage = stage;
-        this.clubId = clubId;
+        this.club = club;
+    }
+
+    /** 동아리가 삭제될 때 공연은 남기고 연결만 끊는다(ERD: club_id ON DELETE SET NULL과 같은 효과) */
+    public void detachClub() {
+        this.club = null;
     }
 
     /** 시작·종료 시각을 바꾼다. 취소선은 "원래 시각" 기준이므로 시작 시각이 처음 바뀔 때만 기록하고 이후엔 덮어쓰지 않는다(FR-TT-04) */

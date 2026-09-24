@@ -20,7 +20,8 @@ public record AdminTimetableSlotResponse(
         @Schema(description = "운영자 수동 진행 중 지정 여부") boolean liveOverride,
         Long stagePlaceId,
         String stageName,
-        Long clubId
+        Long clubId,
+        String clubName
 ) {
 
     public static AdminTimetableSlotResponse from(TimetableSlot slot) {
@@ -36,7 +37,8 @@ public record AdminTimetableSlotResponse(
                 .liveOverride(slot.isLiveOverride())
                 .stagePlaceId(slot.getStage().getId())
                 .stageName(slot.getStage().getName())
-                .clubId(slot.getClubId())
+                .clubId(slot.getClub() == null ? null : slot.getClub().getId())
+                .clubName(slot.getClub() == null ? null : slot.getClub().getName())
                 .build();
     }
 }

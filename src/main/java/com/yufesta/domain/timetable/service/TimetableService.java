@@ -41,6 +41,14 @@ public class TimetableService {
         return TimetableResponse.of(now, items);
     }
 
+    /**
+     * 동아리가 연결된 공연을 표시 순서대로 준다. 라인업 카드가 공연 시간·무대를 붙일 때 쓴다(FR-LU-01).
+     * 호출 측이 club id로 묶으며, 무대·동아리는 함께 읽혀 있다.
+     */
+    public List<TimetableSlot> getSlotsWithClub() {
+        return timetableSlotRepository.findAllWithClubOrderBySortOrder();
+    }
+
     // 현장 진행이 시간표와 어긋날 때는 운영자 판단이 시계보다 우선한다(FR-TT-03)
     private static boolean isLive(TimetableSlot slot, boolean overridden, LocalDateTime now) {
         return overridden ? slot.isLiveOverride() : slot.isLiveAt(now);
