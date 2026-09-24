@@ -305,7 +305,7 @@ authenticated: 나머지 /api/v1/**        (쓰기)
 denyAll     : anyRequest
 ```
 
-- CSRF는 켜져 있다(`CookieCsrfTokenRepository`). 쓰기 요청은 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 하며, 프론트는 최초 1회 `GET /api/v1/auth/csrf`를 호출한다. 이 규칙을 API 명세에 적는다. 쿠키 domain(`AUTH_COOKIE_DOMAIN`, 운영 `.yufesta.com`)은 `access_token`과 `XSRF-TOKEN` 모두에 적용된다.
+- CSRF는 켜져 있다(`CookieCsrfTokenRepository`). 쓰기 요청은 `XSRF-TOKEN` 쿠키 값을 `X-XSRF-TOKEN` 헤더로 보내야 하며, 프론트는 최초 1회 `GET /api/v1/auth/csrf`를 호출한다. 이 규칙을 API 명세에 적는다. 쿠키 domain(`AUTH_COOKIE_DOMAIN`, 운영 `yufesta.com`)은 `access_token`과 `XSRF-TOKEN` 모두에 적용된다. 선행 `.`은 `AuthProperties.Cookie`가 뗀다. Tomcat이 `.yufesta.com`을 거부해 `response.addCookie`로 나가는 `XSRF-TOKEN`이 500이 됐던 사고 때문이며, 실제 Tomcat을 띄우는 `CsrfCookieDomainTest`가 회귀를 막는다.
 - 세션은 `STATELESS`다. OAuth 인가 요청(state·nonce)과 로그인 후 이동 경로는 `CookieOAuth2AuthorizationRequestRepository`가 JWT 시크릿으로 HMAC 서명한 HttpOnly 쿠키(`oauth2_auth_request`, 5분)에 보관한다. 태스크가 여러 개여도 콜백이 어느 서버로 오든 검증된다. `JSESSIONID`가 응답에 나오면 회귀다.
 - prod는 `server.forward-headers-strategy: framework`. ALB가 TLS를 끝내고 HTTP로 넘기므로 `X-Forwarded-Proto`로 redirect-uri와 리다이렉트 URL을 https로 만든다. dev에는 두지 않는다(프록시가 없어 헤더 위조가 가능).
 - CORS 허용 origin은 `app.auth.allowed-origins`(환경변수 `ALLOWED_ORIGINS`, 쉼표 구분). 비어 있으면 `frontend-url` 하나. `frontend-url`은 로그인 후 리다이렉트 기준이라 항상 하나다.
