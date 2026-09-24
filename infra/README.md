@@ -18,6 +18,7 @@
 | 8 | 비밀 5개를 SSM에 넣는다(아래 명령). 값은 로컬 `.env`의 것과 같다 | 터미널 |
 | 9 | 카카오·구글 개발자 콘솔에 Redirect URI `https://api.yufesta.com/login/oauth2/code/kakao`, `.../google` 추가 | 각 콘솔 |
 | 10 | 팀원에게 Vercel 커스텀 도메인 `yufesta.com` 연결 요청(Route 53에 Vercel이 알려주는 A/CNAME 레코드 추가) | Vercel |
+| 11 | `iam/*.json`이 바뀐 PR을 병합할 때마다 IAM > Policies > 각 정책 > **새 버전 생성**으로 JSON을 다시 붙여넣고 기본 버전으로 설정(예: 이미지 저장소 #93에서 S3·CloudFront 권한 추가) | IAM > Policies |
 
 ```bash
 export AWS_PROFILE=yufesta
@@ -65,9 +66,10 @@ curl -i https://api.yufesta.com/actuator/health      # {"status":"UP"}
 curl -i http://api.yufesta.com/actuator/health       # 301 → https
 aws logs tail /ecs/yufesta-api --follow              # Flyway "Successfully applied 2 migrations", Started
 aws ecs describe-services --cluster yufesta-cluster --services yufesta-api --query 'services[0].[runningCount,desiredCount]'
+terraform output image_cdn_url                       # https://dxxxx.cloudfront.net (사진 업로드 후 그 URL로 200, 버킷 직접 URL은 403)
 ```
 
-- 브라우저: `https://api.yufesta.com/oauth2/authorization/kakao?redirect=/` → 카카오 로그인 → `https://yufesta.com/`로 복귀, `access_token` 쿠키 domain `.yufesta.com`
+- 브라우저: `https://api.yufesta.com/oauth2/authorization/kakao?redirect=/` → 카카오 로그인 → `https://yufesta.com/`로 복귀, `access_token`·`XSRF-TOKEN` 쿠키 domain `yufesta.com`
 - 알람 구독: 이메일로 온 "AWS Notification - Subscription Confirmation"의 링크 클릭
 - 운영자 지정: RDS는 프라이빗이라 밖에서 접속이 안 된다. `admin.allowlist`는 ECS Exec 또는 임시 배스천 없이 하려면
   로컬에서 `docker compose`로 같은 SQL을 만든 뒤, 운영자 후보가 첫 로그인을 하기 **전에** 다음 PR에서 붙일 운영자 API로 넣는다(TODO)
@@ -98,8 +100,65 @@ aws ecs update-service --cluster yufesta-cluster --service yufesta-api --force-n
 **수동 배포**(워크플로를 못 쓸 때): 1절의 build·push 명령 후 `aws ecs update-service ... --force-new-deployment`.
 
 - 설정값(FRONTEND_URL 등) 변경: `variables.tf`/tfvars 수정 → `terraform apply` → 새 태스크 정의로 롤링 배포
+- **apply는 항상 `git pull`한 develop에서.** 오래된 브랜치에서 apply하면 그 브랜치의 `.tf`대로 되돌린다. 2026-09-24에 `chore/frontend-dns`(불변 주체 PR #68 이전 분기)에서 dbshell을 apply해 `github_deploy` 신뢰 정책이 옛 sub로 돌아가 배포가 실패했다. plan의 `change`·`destroy` 줄을 읽고, 의도하지 않은 리소스(특히 `aws_iam_role.github_deploy`)가 보이면 중단한다
 - 운영 Swagger(`https://api.yufesta.com/swagger-ui/index.html`)는 `swagger_enabled`로 켜고 끈다. 10/1 배포 전 `terraform.tfvars`에 `swagger_enabled = false`를 넣고 apply
 - 축제 당일(10/2)에는 `apply`·`push` 금지(NFR-AV-01)
+
+## 3-1. 운영 DB 접속 (dbshell)
+
+RDS는 밖에서 붙을 수 없다. `ops.tf`의 `yufesta-dbshell` 태스크(mysql 클라이언트)를 띄워 ECS Exec으로 셸을 연다.
+최초 1회 `brew install --cask session-manager-plugin`.
+
+```bash
+export AWS_PROFILE=yufesta
+NET=$(terraform -chdir="$(git rev-parse --show-toplevel)/infra/terraform" output -raw dbshell_network)  # 저장소 어느 디렉터리에서든
+TASK=$(aws ecs run-task --cluster yufesta-cluster --task-definition yufesta-dbshell --launch-type FARGATE \
+  --enable-execute-command --propagate-tags TASK_DEFINITION --network-configuration "$NET" \
+  --query 'tasks[0].taskArn' --output text)
+aws ecs wait tasks-running --cluster yufesta-cluster --tasks "$TASK"
+# 태스크가 RUNNING이어도 ECS Exec 에이전트는 몇십 초 뒤에 뜬다. 뜰 때까지 기다린다
+until [ "$(aws ecs describe-tasks --cluster yufesta-cluster --tasks "$TASK" \
+  --query 'tasks[0].containers[0].managedAgents[?name==`ExecuteCommandAgent`].lastStatus | [0]' --output text)" = "RUNNING" ]; do
+  printf .; sleep 5; done; echo " exec ready"
+aws ecs execute-command --cluster yufesta-cluster --task "$TASK" --container dbshell --interactive \
+  --command 'sh -c "mysql -h $DB_HOST -u$DB_USER -p$DB_PASSWORD $DB_NAME"'
+# mysql> 프롬프트에서 작업. 나가면(exit) 아래로 태스크 종료
+aws ecs stop-task --cluster yufesta-cluster --task "$TASK" >/dev/null
+```
+그래도 `execute-command`가 "not enabled"로 실패하면 같은 `$TASK`로 그 줄만 다시 실행한다(`run-task`를 또 하지 말 것. 태스크가 하나 더 뜬다).
+
+자주 쓰는 SQL
+```sql
+-- 회원 목록(개인정보는 provider_user_id뿐). 특정인은 가입 시각으로 찾는다
+SELECT id, provider, role, created_at, last_login_at FROM users ORDER BY id;
+-- 회원 삭제: 신청·태그·매칭·신고가 FK CASCADE로 함께 지워진다
+DELETE FROM users WHERE id = <id>;
+-- 운영자 지정: 이미 가입한 회원은 role 직접 변경(재로그인 불필요), 아직이면 allowlist에 넣어 첫 로그인 때 STAFF 부여.
+-- 팀원(프론트 운영자 페이지 테스트)은 운영에서 한 번 로그인시킨 뒤 STAFF로. 회차 open·close·rerun·시각 수정까지 되고 publish는 OWNER만
+UPDATE users SET role = 'OWNER' WHERE id = <내 id>;
+UPDATE users SET role = 'STAFF' WHERE id = <팀원 id>;
+UPDATE app_settings SET setting_value = 'KAKAO:<providerUserId>' WHERE setting_key = 'admin.allowlist';
+-- 회차 상태·시각 확인(변경은 운영자 API로)
+SELECT seq, status, open_at, close_at, publish_at, executed_at, published_at FROM match_rounds;
+-- 리허설 뒤 초기화: 결과·신고·신청을 지우고 회차를 처음 상태로(회원은 남긴다). 시각은 운영자 API로 실제 값을 다시 넣는다
+DELETE FROM matches;
+DELETE FROM blocks;
+DELETE FROM applications;
+UPDATE match_rounds SET status = 'SCHEDULED', executed_at = NULL, published_at = NULL;
+```
+리허설 초기화 뒤 1회차 `open_at`이 이미 지났으면 스케줄러가 10초 안에 다시 OPEN으로 연다.
+
+## 3-2. 이미지 저장소 (S3 · CloudFront)
+
+`storage.tf`: 비공개 버킷 `yufesta-images` + CloudFront 배포(OAC). 앱(태스크 역할)은 버킷에 쓰기만 하고, 읽기는 CloudFront만 허용된다(버킷 정책의 `AWS:SourceArn`).
+컨테이너 env `IMAGE_STORAGE=s3`, `IMAGE_BUCKET`, `IMAGE_CDN_URL`은 Terraform이 넣는다. 로컬은 `IMAGE_STORAGE=local`로 `./uploads`에 저장한다.
+
+- 첫 apply 전 0절 11번(정책 새 버전)을 먼저. CloudFront 배포 생성·삭제는 5~10분 걸린다
+- 사진 업로드는 운영 Swagger admin `POST /api/v1/admin/clubs/{clubId}/photo`(multipart `file`, 10MB 이하 jpeg·png·webp). 서버가 긴 변 1600px·썸네일 400px JPEG로 줄여 `clubs/{clubId}/{uuid}-1600.jpg`·`-thumb.jpg`로 올린다
+- 키에 uuid가 있어 CloudFront 무효화가 필요 없다(교체하면 새 키). 캐시는 관리형 CachingOptimized(기본 1일)
+- 비용: S3 수백 MB + CloudFront 수 GB 전송이면 월 $1 미만
+- 커스텀 도메인(img.yufesta.com)은 CloudFront가 us-east-1 인증서를 요구해 보류. 필요해지면 provider alias 추가
+- `terraform destroy`는 버킷에 객체가 있으면 실패한다. 축제 후 `aws s3 rm s3://yufesta-images --recursive` 뒤 destroy
 
 ## 4. 정리 (축제 후)
 
@@ -111,6 +170,7 @@ terraform destroy      # RDS는 yufesta-mysql-final 스냅샷을 남기고 삭�
 ## 5. 이 정책이 기존 인프라를 못 건드리는 이유
 
 - **Deny 문**: `Project=yufesta` 태그가 없는 리소스에 대한 삭제·수정 계열 액션을 거부한다. Terraform은 모든 리소스를 태그와 함께 만들므로(`default_tags`) 우리 것은 통과하고, 기존 리소스는 태그가 없어 거부된다. 예외 둘: 보안 그룹 규칙 추가(`ec2:Authorize*`)는 아직 없는 규칙 리소스에 평가돼 태그 조건을 쓸 수 없어 제외했고, CloudWatch Logs는 태그 조건이 즉시 반영되지 않아 로그 그룹 이름(`/ecs/yufesta-*`) 기준 `NotResource` Deny로 대신한다
-- **이름 제한**: IAM 역할은 `yufesta-*`, SSM은 `/yufesta/*`, Route 53은 우리 존 하나, S3는 state 버킷 하나만 허용
+- **이름 제한**: IAM 역할은 `yufesta-*`, SSM은 `/yufesta/*`, Route 53은 우리 존 하나, S3는 state 버킷과 `yufesta-images*`만 allow. 거기에 `yufesta-*` 밖의 버킷·객체 변경은 `NotResource` Deny로 한 번 더 막는다
+- **CloudFront**: 태그 없는 배포의 수정·삭제·무효화는 태그 Deny로 거부되고, 생성(`CreateDistribution`)은 요청에 `Project=yufesta` 태그가 있을 때만 allow(`aws:RequestTag` 조건. Terraform은 default_tags를 붙여 만든다). OAC는 태그를 지원하지 않아 `Update`를 허용하지 않고 `Delete`만 허용한다. 사용 중인 OAC는 CloudFront가 삭제를 거부하므로 기존 배포가 영향받을 길이 없다
 - **Terraform state**: 우리가 만든 것만 들어 있어 `destroy`도 그 범위를 넘지 않는다
 - 만약 `AccessDenied`가 우리 리소스에서 나면 액션 이름을 확인해 Deny 목록을 조정한다. 기존 인프라 쪽으로 권한을 넓히지 않는다

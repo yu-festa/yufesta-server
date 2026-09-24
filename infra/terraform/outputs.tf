@@ -34,3 +34,13 @@ output "ssm_parameters_to_create" {
   description = "사용자가 apply 전에 CLI로 넣어야 하는 SecureString 파라미터"
   value       = [for key in local.user_managed_secrets : "${var.ssm_prefix}/${key}"]
 }
+
+output "image_bucket" {
+  description = "이미지 버킷. 앱은 태스크 역할로 여기에 쓴다"
+  value       = aws_s3_bucket.images.bucket
+}
+
+output "image_cdn_url" {
+  description = "이미지 공개 주소(IMAGE_CDN_URL). 응답의 photoUrl이 이 도메인으로 나간다"
+  value       = "https://${aws_cloudfront_distribution.images.domain_name}"
+}
