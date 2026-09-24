@@ -34,6 +34,12 @@ public enum ErrorCode {
     PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다."),
     PLACE_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_EVENT_NOT_FOUND", "장소 이벤트를 찾을 수 없습니다."),
 
+    // 타임테이블
+    TIMETABLE_SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "TIMETABLE_SLOT_NOT_FOUND", "공연을 찾을 수 없습니다."),
+    TIMETABLE_INVALID_TIME(HttpStatus.BAD_REQUEST, "TIMETABLE_INVALID_TIME", "종료 시각은 시작 시각보다 뒤여야 합니다."),
+    TIMETABLE_STAGE_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_STAGE_INVALID", "무대로 지정할 수 없는 장소입니다."),
+    TIMETABLE_ORDER_INVALID(HttpStatus.BAD_REQUEST, "TIMETABLE_ORDER_INVALID", "순서 목록에 모든 공연이 한 번씩 있어야 합니다."),
+
     // 공지
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "공지를 찾을 수 없습니다."),
 
