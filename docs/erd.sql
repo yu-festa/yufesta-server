@@ -1,5 +1,5 @@
 -- ============================================================
--- YU FESTA ERD v1.2 (SRS v1.6 기준) — MySQL 8.x
+-- YU FESTA ERD v1.3 (SRS v1.6 기준) — MySQL 8.x
 -- ERDCloud: 가져오기 > SQL > MySQL 로 import. 컬럼 COMMENT = 논리명(한글)
 -- 규칙: PK는 BIGINT UNSIGNED AUTO_INCREMENT, 열거형은 VARCHAR + 허용값 주석(값은 대문자 enum 이름),
 --       불리언은 TINYINT(1), 시각은 DATETIME(KST), 모든 테이블에 created_at·updated_at, 문자셋 utf8mb4
@@ -7,6 +7,7 @@
 -- v1.2: 응원 메시지 비로그인 작성(작성자 FK 제거, 익명 키 해시), 콘텐츠 필터 상태 컬럼,
 --       2회차 이월 신청 자동 생성(entry_type/source_application_id), 회차 초기값(16:00/20:00),
 --       users.blocked_at → matching_blocked_at, gender VARCHAR(1), 감사 시각 컬럼 통일
+-- v1.3: timetable_slots.slot_type에 EVENT 추가(개회식·연설·가요제), 타임테이블 초기 데이터(무대 1·공연 13, V3)
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -83,7 +84,7 @@ CREATE TABLE `timetable_slots` (
   `id`                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '공연 슬롯 ID',
   `sort_order`         INT             NOT NULL COMMENT '공연 순서',
   `title`              VARCHAR(50)     NOT NULL COMMENT '공연명(출연자명)',
-  `slot_type`          VARCHAR(10)     NOT NULL COMMENT '구분(CLUB/GUEST)',
+  `slot_type`          VARCHAR(10)     NOT NULL COMMENT '구분(CLUB/GUEST/EVENT)',
   `start_at`           DATETIME        NOT NULL COMMENT '시작 시각',
   `end_at`             DATETIME        NOT NULL COMMENT '종료 시각',
   `stage_place_id`     BIGINT UNSIGNED NOT NULL COMMENT '무대 장소 ID',
@@ -316,3 +317,23 @@ INSERT INTO `app_settings` (`setting_key`, `setting_value`, `description`, `crea
 INSERT INTO `match_rounds` (`seq`, `open_at`, `close_at`, `publish_at`, `status`, `created_at`, `updated_at`) VALUES
   (1, '2026-09-25 00:00:00', '2026-10-02 15:50:00', '2026-10-02 16:00:00', 'SCHEDULED', NOW(), NOW()),
   (2, '2026-10-02 16:00:00', '2026-10-02 19:50:00', '2026-10-02 20:00:00', 'SCHEDULED', NOW(), NOW());
+
+-- 초기 타임테이블 (db/migration/V3__timetable_initial.sql과 동일하게 유지). 무대는 STAGE 장소가 없을 때만 임시 좌표로 만든다
+INSERT INTO `places` (`name`, `category`, `lat`, `lng`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`)
+SELECT '중앙 무대', 'STAGE', 35.8365210, 128.7542100, '들풀제 공연 무대', 0, 1, NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM `places` WHERE `category` = 'STAGE');
+
+INSERT INTO `timetable_slots` (`sort_order`, `title`, `slot_type`, `start_at`, `end_at`, `stage_place_id`, `created_at`, `updated_at`) VALUES
+  (1,  '개회식',            'EVENT', '2026-10-02 15:00:00', '2026-10-02 15:10:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (2,  '신명마당',          'CLUB',  '2026-10-02 15:30:00', '2026-10-02 15:55:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (3,  '천마응원단',        'CLUB',  '2026-10-02 15:55:00', '2026-10-02 16:15:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (4,  'HIPCOM',            'CLUB',  '2026-10-02 16:15:00', '2026-10-02 16:45:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (5,  'COSMOS',            'CLUB',  '2026-10-02 16:45:00', '2026-10-02 17:15:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (6,  'The WE',            'CLUB',  '2026-10-02 17:15:00', '2026-10-02 17:45:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (7,  'ECHOES',            'CLUB',  '2026-10-02 17:45:00', '2026-10-02 18:15:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (8,  '총장님 연설',       'EVENT', '2026-10-02 18:15:00', '2026-10-02 18:30:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (9,  '예사가락',          'CLUB',  '2026-10-02 18:30:00', '2026-10-02 19:00:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (10, 'BLUE WAVE',         'CLUB',  '2026-10-02 19:00:00', '2026-10-02 19:30:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (11, 'MAX & ZENITH',      'CLUB',  '2026-10-02 19:30:00', '2026-10-02 20:00:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (12, '가요제',            'EVENT', '2026-10-02 20:00:00', '2026-10-02 21:10:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW()),
+  (13, '아티스트 공연(미정)', 'GUEST', '2026-10-02 21:30:00', '2026-10-02 23:00:00', (SELECT MIN(`id`) FROM `places` WHERE `category` = 'STAGE'), NOW(), NOW());

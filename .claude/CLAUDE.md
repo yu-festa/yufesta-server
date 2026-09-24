@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.2)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.3)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
@@ -53,7 +53,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
 - 인프라: `infra/terraform`(Terraform, 소마 계정 서울 리전, 전용 IAM 사용자 프로필 `yufesta`). 절차는 `infra/README.md`. `terraform plan/apply`와 AWS 자격 증명은 사람이 다루고 Claude는 파일만 쓴다. 기존 운영 인프라는 조회도 하지 않는다
-- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
+- 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차, V3 무대·공연 13건)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
 ## 3. 패키지 구조
 
@@ -337,6 +337,8 @@ denyAll     : anyRequest
 **타임테이블 `timetable`** (FR-TT)
 - 공개 응답에 계산 필드 포함: `effectiveStartAt = start_at + delay_minutes`, `isLive`, `isChanged(changed_from_start != null)`. LIVE 판정: `is_live_override = 1`인 슬롯이 있으면 그것만, 없으면 `effectiveStartAt ≤ now < end_at + delay`.
 - 운영자 시간 변경 시 최초 1회만 `changed_from_start`에 원래 시각을 기록(덮어쓰지 않음). override는 한 번에 한 슬롯만(다른 슬롯은 해제).
+- 구분 `slot_type`은 CLUB/GUEST/EVENT(개회식·연설·가요제). `club_id`는 라인업 도메인이 생기기 전이라 엔티티에 `Long clubId`로 둔다. 무대는 `PlaceService.getPlaceEntity`로 받아 STAGE만 허용(`TIMETABLE_STAGE_INVALID`).
+- 운영자 API(`/api/v1/admin/timetable`): 목록·등록·수정·삭제, `/{id}/times`(변경 기록), `/{id}/delay`, `/{id}/live`, `PUT /order`(모든 ID를 한 번씩, 아니면 `TIMETABLE_ORDER_INVALID`). 초기 공연 13건은 V3 마이그레이션이 넣고 이후 변경은 이 API로.
 
 **지도 `place`** (FR-MAP)
 - 카테고리 `STAGE/BOOTH/TOILET/AMENITY/INFO`. 공개 목록은 `is_active = 1`만. 거리 계산은 클라이언트(위치는 서버에 오지 않는다, NFR-SC-06). 화장실 목록 기본 정렬은 이름순.

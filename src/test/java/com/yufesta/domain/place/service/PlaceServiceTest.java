@@ -44,6 +44,23 @@ class PlaceServiceTest {
     private PlaceService placeService;
 
     @Test
+    void 다른_도메인용_장소_엔티티_조회는_비노출_장소도_준다() {
+        Place place = place(3L, "숨긴 무대", PlaceCategory.STAGE, 3);
+        when(placeRepository.findById(3L)).thenReturn(Optional.of(place));
+
+        assertThat(placeService.getPlaceEntity(3L)).isSameAs(place);
+    }
+
+    @Test
+    void 다른_도메인용_장소_엔티티_조회는_없으면_PLACE_NOT_FOUND를_던진다() {
+        when(placeRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> placeService.getPlaceEntity(99L))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.PLACE_NOT_FOUND);
+    }
+
+    @Test
     void 카테고리_없이_노출_중인_장소를_표시순과_이름순으로_조회한다() {
         Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
         when(placeRepository.findAllByActiveTrueOrderBySortOrderAscNameAsc()).thenReturn(List.of(place));
