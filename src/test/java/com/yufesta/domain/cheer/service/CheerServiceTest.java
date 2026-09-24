@@ -1,11 +1,14 @@
 package com.yufesta.domain.cheer.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
@@ -13,6 +16,7 @@ import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.cheer.repository.CheerRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -69,6 +73,30 @@ class CheerServiceTest {
         assertThat(captor.getValue())
                 .extracting(Cheer::getContent, Cheer::getDisplayName, Cheer::getWriterKeyHash, Cheer::getModerationStatus)
                 .containsExactly("축제 파이팅!", "씩씩한 판다", "new-hash", ModerationStatus.PASSED);
+    }
+
+    @Test
+    void 숨겨진_응원_메시지는_신고할_수_없다() {
+        Cheer cheer = cheer(1L, "축제 최고예요!", "신난 수달", "writer-hash", LocalDateTime.of(2026, 10, 2, 15, 0));
+        ReflectionTestUtils.setField(cheer, "hidden", true);
+        when(cheerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(cheer));
+
+        assertThatThrownBy(() -> cheerService.lockReportableForReport(1L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.CONTENT_NOT_REPORTABLE);
+    }
+
+    @Test
+    void 신고_수가_임계값에_도달한_응원_메시지는_숨김_처리한다() {
+        Cheer cheer = cheer(1L, "축제 최고예요!", "신난 수달", "writer-hash", LocalDateTime.of(2026, 10, 2, 15, 0));
+        ReflectionTestUtils.setField(cheer, "reportCount", 2);
+        when(cheerRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(cheer));
+
+        cheerService.incrementReportCountAndHideIfThreshold(1L, 2);
+
+        verify(cheerRepository).incrementReportCount(1L);
+        assertThat(cheer.isHidden()).isTrue();
     }
 
     private Cheer cheer(Long id, String content, String displayName, String writerKeyHash, LocalDateTime createdAt) {

@@ -40,6 +40,11 @@ public enum ErrorCode {
     // 분실물
     LOST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_NOT_FOUND", "분실물 게시글을 찾을 수 없습니다."),
 
+    // 콘텐츠 신고
+    CONTENT_REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_TARGET_NOT_FOUND", "신고할 콘텐츠를 찾을 수 없습니다."),
+    CONTENT_NOT_REPORTABLE(HttpStatus.BAD_REQUEST, "CONTENT_NOT_REPORTABLE", "신고할 수 없는 콘텐츠입니다."),
+    CONTENT_REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "CONTENT_REPORT_ALREADY_EXISTS", "이미 신고한 콘텐츠입니다."),
+
     // 인스타팅
     MATCH_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_ROUND_NOT_FOUND", "회차를 찾을 수 없습니다."),
     MATCH_ROUND_NOT_OPEN(HttpStatus.CONFLICT, "MATCH_ROUND_NOT_OPEN", "지금은 신청을 받지 않는 시간이에요."),

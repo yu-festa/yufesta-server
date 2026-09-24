@@ -180,6 +180,35 @@ class LostItemServiceTest {
                 .isEqualTo(ErrorCode.FORBIDDEN);
     }
 
+    @Test
+    void 공식_안내소_분실물은_신고할_수_없다() {
+        User admin = org.mockito.Mockito.mock(User.class);
+        LostItem officialLostItem = LostItem.official(
+                admin,
+                "검은색 카드지갑",
+                "중앙도서관 앞",
+                LocalDateTime.of(2026, 10, 2, 14, 0)
+        );
+        when(lostItemRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(officialLostItem));
+
+        assertThatThrownBy(() -> lostItemService.lockReportableForReport(1L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.CONTENT_NOT_REPORTABLE);
+    }
+
+    @Test
+    void 신고_수가_임계값에_도달한_분실물은_숨김_처리한다() {
+        LostItem lostItem = lostItem(1L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        ReflectionTestUtils.setField(lostItem, "reportCount", 2);
+        when(lostItemRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lostItem));
+
+        lostItemService.incrementReportCountAndHideIfThreshold(1L, 2);
+
+        verify(lostItemRepository).incrementReportCount(1L);
+        assertThat(lostItem.isHidden()).isTrue();
+    }
+
     private static CreateLostItemRequest request() {
         return CreateLostItemRequest.builder()
                 .kind(LostItemKind.FOUND)
