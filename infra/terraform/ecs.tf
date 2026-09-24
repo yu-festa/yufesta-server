@@ -24,6 +24,9 @@ locals {
     { name = "ALLOWED_ORIGINS", value = join(",", var.allowed_origins) },
     { name = "AUTH_COOKIE_DOMAIN", value = var.cookie_domain },
     { name = "SWAGGER_ENABLED", value = tostring(var.swagger_enabled) },
+    { name = "IMAGE_STORAGE", value = "s3" },
+    { name = "IMAGE_BUCKET", value = aws_s3_bucket.images.bucket },
+    { name = "IMAGE_CDN_URL", value = "https://${aws_cloudfront_distribution.images.domain_name}" },
   ]
 
   # ECS 에이전트가 시작 시 SSM에서 값을 꺼내 환경변수로 넣는다. 콘솔·로그에는 ARN만 보인다

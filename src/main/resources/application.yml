@@ -5,6 +5,12 @@ spring:
   profiles:
     default: dev
 
+  servlet:
+    multipart:
+      # 사진 업로드 장당 10MB(FR-PH-05). 초과는 MaxUploadSizeExceededException → PHOTO_TOO_LARGE(413)
+      max-file-size: 10MB
+      max-request-size: 12MB
+
   jpa:
     open-in-view: false
     # 부울 컬럼은 ERD의 TINYINT(1). MySQL 드라이버가 TINYINT(1)을 BIT로 보고하므로(tinyInt1isBit 기본 true)
@@ -16,6 +22,16 @@ app:
     # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
     enabled: ${SCHEDULER_ENABLED:true}
     round-tick: PT10S
+  storage:
+    # 이미지 저장소. local(기본, ./uploads에 저장하고 /uploads/**로 서빙) | s3(운영, 태스크 역할 자격 증명)
+    type: ${IMAGE_STORAGE:local}
+    # 응답 photoUrl의 접두. 운영은 CloudFront 도메인(Terraform image_cdn_url)
+    cdn-url: ${IMAGE_CDN_URL:http://localhost:8080/uploads}
+    s3:
+      bucket: ${IMAGE_BUCKET:}
+      region: ${AWS_REGION:ap-northeast-2}
+    local:
+      dir: ${IMAGE_LOCAL_DIR:./uploads}
 
 management:
   endpoints:

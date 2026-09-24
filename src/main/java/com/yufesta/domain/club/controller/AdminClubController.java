@@ -10,6 +10,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** 운영자 라인업 관리 API. 명세는 AdminClubApi */
 @RestController
@@ -36,6 +37,16 @@ public class AdminClubController implements AdminClubApi {
     @Override
     public ApiResponse<AdminClubResponse> update(Long clubId, UpdateClubRequest request) {
         return ApiResponse.success("동아리를 수정했습니다.", clubAdminService.update(clubId, request));
+    }
+
+    @Override
+    public ApiResponse<AdminClubResponse> uploadPhoto(Long clubId, MultipartFile file) {
+        return ApiResponse.success("대표 사진을 올렸습니다.", clubAdminService.uploadPhoto(clubId, file));
+    }
+
+    @Override
+    public void deletePhoto(Long clubId) {
+        clubAdminService.deletePhoto(clubId);
     }
 
     @Override

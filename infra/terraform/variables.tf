@@ -120,3 +120,9 @@ variable "alarm_email" {
   description = "CloudWatch 알람을 받을 이메일. 첫 apply 후 확인 메일의 링크를 눌러야 구독이 활성화된다"
   type        = string
 }
+
+variable "image_bucket_name" {
+  description = "이미지 S3 버킷 이름(IMAGE_BUCKET). 전역 유일이라 이미 쓰이면 yufesta-images-<임의>로 바꾼다. 배포자 정책은 yufesta-images* 만 허용"
+  type        = string
+  default     = "yufesta-images"
+}

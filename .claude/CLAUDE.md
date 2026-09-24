@@ -24,6 +24,7 @@
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
 | 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql`, `V4__club_initial.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
+| 이미지 | `software.amazon.awssdk:s3`(AWS BOM 2.55.4, netty 제외) + `net.coobird:thumbnailator` 0.4.21. 저장소는 `app.storage.type` local(기본)·s3 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
 버전은 `build.gradle`과 `gradle-wrapper.properties`에 적힌 것만 기록한다. 바뀌면 이 표를 같은 커밋에서 갱신한다. BOM이 관리하는 라이브러리 버전을 코드나 문서에 직접 적지 않는다.
@@ -52,6 +53,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
+- 이미지: 로컬은 `IMAGE_STORAGE=local`(기본)이라 `./uploads`에 저장되고 `http://localhost:8080/uploads/...`로 열린다. 운영은 Terraform이 `s3`·버킷·CloudFront 주소를 env로 넣는다(`infra/README.md` 3-2절)
 - 인프라: `infra/terraform`(Terraform, 소마 계정 서울 리전, 전용 IAM 사용자 프로필 `yufesta`). 절차는 `infra/README.md`. `terraform plan/apply`와 AWS 자격 증명은 사람이 다루고 Claude는 파일만 쓴다. 기존 운영 인프라는 조회도 하지 않는다
 - 스키마·초기 데이터: 기동 시 Flyway가 `db/migration`(V1 스키마, V2 설정값·회차, V3 무대·공연 13건, V4 동아리 9건)을 빈 DB에 적용한다. Hibernate `update`로 만든 옛 로컬 DB는 Flyway가 거부하므로 `docker compose down -v`로 지우고 다시 띄운다. `admin.allowlist`는 비어 있으므로 운영자 테스트는 `UPDATE app_settings SET setting_value='KAKAO:<providerUserId>' WHERE setting_key='admin.allowlist';` 후 다시 로그인(최초 로그인 시 role 부여)
 
@@ -64,6 +66,7 @@ com.yufesta
 │  ├─ exception     CustomException, GlobalExceptionHandler, error/{ErrorCode, ErrorResponse, ValidationError}
 │  ├─ response      ApiResponse<T>
 │  ├─ logging       RequestLoggingFilter
+│  ├─ storage       ImageStorage(S3·로컬 어댑터), ImageProcessor(리사이즈), StorageProperties
 │  └─ security      config/{SecurityConfig, AuthProperties}, jwt/*, oauth2/*
 └─ domain
    └─ <도메인>
@@ -296,7 +299,7 @@ public class ClockConfig {
 - SecurityConfig 목표 상태(순서가 의미 있음, 먼저 매칭되는 규칙이 이긴다):
 
 ```
-permitAll   : /oauth2/**, /login/**, /actuator/health, /swagger-ui/**, /v3/api-docs/** (dev), GET /api/v1/auth/csrf, POST /api/v1/auth/logout
+permitAll   : /oauth2/**, /login/**, /actuator/health, /swagger-ui/**, /v3/api-docs/** (dev), GET /uploads/** (local 저장소 서빙), GET /api/v1/auth/csrf, POST /api/v1/auth/logout
 OWNER       : /api/v1/admin/match/rounds/*/publish, /api/v1/admin/settings/**
 STAFF|OWNER : /api/v1/admin/**
 permitAll   : GET /api/v1/**            (읽기 비로그인, SSE 포함)
@@ -347,6 +350,7 @@ denyAll     : anyRequest
 - 등록·수정은 운영자만. 공개 목록은 `sort_order`, 공지는 최신순. 긴급 배너는 `is_banner = 1` 중 최신 1건.
 - 라인업 카드의 공연 시간·무대는 타임테이블에서 붙인다(`TimetableService.getSlotsWithClub()`을 한 번 읽어 동아리별로 묶음). 서비스 의존은 한 방향만: `ClubService → TimetableService`, `TimetableAdminService → ClubService`, `ClubAdminService → TimetableAdminService`(삭제 전 `detachClub`, H2엔 FK SET NULL이 없어 코드로 끊는다). `photo_url`은 S3 업로드 API 전까지 운영자가 URL 문자열로 넣는다. 초기 동아리 9건은 V4.
 - 사진 업로드: multipart, 장당 10MB 이하, 다중. 서버가 긴 변 1600px 리사이즈본과 썸네일을 만들고 원본은 별도 보관(FR-PH-05). EXIF 회전 반영. S3 키 `photos/{yyyyMMdd}/{uuid}-{original|1600|thumb}.jpg`. 응답 URL은 CloudFront 도메인.
+- 라인업 대표 사진: `POST /api/v1/admin/clubs/{id}/photo`(multipart `file`, jpeg·png). 키 `clubs/{clubId}/{uuid}-{1600|thumb}.jpg`, 원본은 보관하지 않는다. 새 사진을 먼저 저장하고 `photo_url`을 바꾼 뒤 이전 키 두 개를 지운다. 저장소는 `common/storage`: `ImageStorage`(`app.storage.type` local → `./uploads`+`/uploads/**`, s3 → 버킷+CloudFront, 태스크 역할 자격 증명), `ImageProcessor`(EXIF 반영, 확대 금지, JPEG 0.85). 응답 URL은 항상 `cdn-url/키`라 `StorageProperties.keyOf`로 되찾는다.
 
 **분실물 `lostitem`, 응원 메시지 `cheer`** (FR-LF, FR-CH, FR-AN, FR-CF)
 - 분실물: 읽기 비로그인, 쓰기 로그인. `write_banned_at`이면 `USER_WRITE_BANNED`. 회원당 분당 1건 속도 제한.
@@ -423,7 +427,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 - 시간 의존 로직은 `Clock.fixed`. `Thread.sleep`으로 시간을 맞추지 않는다.
 - 매칭 엔진: 순수 단위 테스트. 최소 케이스 — 1:1 완전 매칭, 성비 2:1에서 전원 배정, N 상한 초과 시 미매칭 발생, 차단 쌍 제외, 이전 회차 쌍 제외, 동점 결정성, 한쪽 0명.
 - 새 기능에는 서비스 단위 테스트가 반드시 포함된다. 커버리지 수치는 강제하지 않는다.
-- 라이브러리 추가는 사람이 결정한다. 합의된 후보: `spring-boot-starter-flyway`+`flyway-mysql`, `spring-boot-starter-data-redis`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
+- 라이브러리 추가는 사람이 결정한다. 도입됨: `spring-boot-starter-flyway`+`flyway-mysql`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`. 합의된 후보: `spring-boot-starter-data-redis`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
 
 ## 12. 현재 상태와 우선 보완 항목
 

@@ -59,7 +59,12 @@
         "rds:CopyDBSnapshot",
         "rds:RestoreDBInstanceFromDBSnapshot",
         "ecs:RunTask",
-        "ecs:StartTask"
+        "ecs:StartTask",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:CreateInvalidation"
       ],
       "Resource": "*",
       "Condition": {
@@ -80,6 +85,28 @@
       "NotResource": [
         "arn:aws:logs:ap-northeast-2:*:log-group:/ecs/yufesta-*",
         "arn:aws:logs:ap-northeast-2:*:log-group:/ecs/yufesta-*:*"
+      ]
+    },
+    {
+      "Sid": "DenyTouchingOtherBuckets",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteBucket",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketAcl",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "NotResource": [
+        "arn:aws:s3:::yufesta-*",
+        "arn:aws:s3:::yufesta-*/*"
       ]
     }
   ]
