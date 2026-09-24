@@ -3,7 +3,9 @@ package com.yufesta.domain.lostitem.service;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.domain.lostitem.dto.request.CreateOfficialLostItemRequest;
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
+import com.yufesta.domain.lostitem.dto.request.UpdateLostItemVisibilityRequest;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
@@ -79,14 +81,66 @@ public class LostItemService {
         requireOwnedLostItem(userId, lostItemId).hide();
     }
 
+    /**
+     * 운영자가 안내소 보관 습득물을 공식 게시글로 등록한다(FR-LF-06).
+     * @throws CustomException UNAUTHORIZED, USER_NOT_FOUND
+     */
+    @Transactional
+    public LostItemResponse createOfficial(Long userId, CreateOfficialLostItemRequest request) {
+        User admin = requireUser(userId);
+        LostItem lostItem = LostItem.official(
+                admin,
+                request.description().trim(),
+                request.placeText().trim(),
+                request.occurredAt()
+        );
+        return LostItemResponse.from(lostItemRepository.save(lostItem));
+    }
+
+    /**
+     * 운영자가 분실물 게시글을 해결 처리한다(FR-LF-04, 06).
+     * @throws CustomException UNAUTHORIZED, LOST_ITEM_NOT_FOUND
+     */
+    @Transactional
+    public LostItemResponse resolveByAdmin(Long userId, Long lostItemId) {
+        requireLogin(userId);
+        LostItem lostItem = getLostItemOrThrow(lostItemId);
+        lostItem.resolve();
+        return LostItemResponse.from(lostItem);
+    }
+
+    /**
+     * 운영자가 일반 사용자 분실물 게시글을 숨기거나 복구한다(FR-LF-04).
+     * <p>공식 안내소 게시글은 ERD 기준 신고·숨김 대상에서 제외한다.
+     * @throws CustomException UNAUTHORIZED, LOST_ITEM_NOT_FOUND, FORBIDDEN
+     */
+    @Transactional
+    public LostItemResponse updateVisibility(Long userId, Long lostItemId, UpdateLostItemVisibilityRequest request) {
+        requireLogin(userId);
+        LostItem lostItem = getLostItemOrThrow(lostItemId);
+        if (lostItem.isOfficial()) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+        if (request.hidden()) {
+            lostItem.hide();
+        } else {
+            lostItem.restore();
+        }
+        return LostItemResponse.from(lostItem);
+    }
+
     private LostItem requireOwnedLostItem(Long userId, Long lostItemId) {
         requireLogin(userId);
-        LostItem lostItem = lostItemRepository.findById(lostItemId)
-                .orElseThrow(() -> new CustomException(ErrorCode.LOST_ITEM_NOT_FOUND));
+        LostItem lostItem = getLostItemOrThrow(lostItemId);
         if (!lostItem.isOwnedBy(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
         return lostItem;
+    }
+
+    private LostItem getLostItemOrThrow(Long lostItemId) {
+        return lostItemRepository.findById(lostItemId)
+                .orElseThrow(() -> new CustomException(ErrorCode.LOST_ITEM_NOT_FOUND));
     }
 
     private User requireUser(Long userId) {
