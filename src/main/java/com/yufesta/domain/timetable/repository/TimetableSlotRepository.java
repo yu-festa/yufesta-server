@@ -1,9 +1,11 @@
 package com.yufesta.domain.timetable.repository;
 
 import com.yufesta.domain.timetable.entity.TimetableSlot;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Long> {
 
@@ -16,6 +18,10 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, Lo
     List<TimetableSlot> findAllWithClubOrderBySortOrder();
 
     List<TimetableSlot> findAllByClub_Id(Long clubId);
+
+    // 인스타팅 "보고 싶은 공연" 선택지: 기준 시각(회차 발표) 이후 시작하는 공연(FR-MT-05)
+    @Query("select s from TimetableSlot s join fetch s.stage where s.startAt >= :from order by s.sortOrder asc, s.startAt asc")
+    List<TimetableSlot> findAllStartingAtOrAfterWithStage(@Param("from") LocalDateTime from);
 
     List<TimetableSlot> findAllByLiveOverrideTrue();
 }

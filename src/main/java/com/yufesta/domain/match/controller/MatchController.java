@@ -8,12 +8,14 @@ import com.yufesta.domain.match.dto.request.UpdateApplicationRequest;
 import com.yufesta.domain.match.dto.response.ApplicationResponse;
 import com.yufesta.domain.match.dto.response.MatchReportResponse;
 import com.yufesta.domain.match.dto.response.MatchResultResponse;
+import com.yufesta.domain.match.dto.response.MatchSlotsResponse;
 import com.yufesta.domain.match.dto.response.MatchSummaryResponse;
 import com.yufesta.domain.match.dto.response.MatchTagResponse;
 import com.yufesta.domain.match.service.ApplicationService;
 import com.yufesta.domain.match.service.MatchReportService;
 import com.yufesta.domain.match.service.MatchResultService;
 import com.yufesta.domain.match.service.MatchSummaryService;
+import com.yufesta.domain.match.service.WantedSlotService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,17 +31,20 @@ public class MatchController implements MatchApi {
     private final ApplicationService applicationService;
     private final MatchResultService matchResultService;
     private final MatchReportService matchReportService;
+    private final WantedSlotService wantedSlotService;
 
     public MatchController(
             MatchSummaryService matchSummaryService,
             ApplicationService applicationService,
             MatchResultService matchResultService,
-            MatchReportService matchReportService
+            MatchReportService matchReportService,
+            WantedSlotService wantedSlotService
     ) {
         this.matchSummaryService = matchSummaryService;
         this.applicationService = applicationService;
         this.matchResultService = matchResultService;
         this.matchReportService = matchReportService;
+        this.wantedSlotService = wantedSlotService;
     }
 
     @Override
@@ -50,6 +55,11 @@ public class MatchController implements MatchApi {
     @Override
     public ApiResponse<List<MatchTagResponse>> getTags() {
         return ApiResponse.success(MatchTagResponse.all());
+    }
+
+    @Override
+    public ApiResponse<MatchSlotsResponse> getSlots() {
+        return ApiResponse.success(wantedSlotService.getSelectableSlots());
     }
 
     @Override

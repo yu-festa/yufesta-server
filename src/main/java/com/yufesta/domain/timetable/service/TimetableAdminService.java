@@ -4,6 +4,7 @@ import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.club.entity.Club;
 import com.yufesta.domain.club.service.ClubService;
+import com.yufesta.domain.match.service.ApplicationService;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.place.service.PlaceService;
@@ -36,15 +37,18 @@ public class TimetableAdminService {
     private final TimetableSlotRepository timetableSlotRepository;
     private final PlaceService placeService;
     private final ClubService clubService;
+    private final ApplicationService applicationService;
 
     public TimetableAdminService(
             TimetableSlotRepository timetableSlotRepository,
             PlaceService placeService,
-            ClubService clubService
+            ClubService clubService,
+            ApplicationService applicationService
     ) {
         this.timetableSlotRepository = timetableSlotRepository;
         this.placeService = placeService;
         this.clubService = clubService;
+        this.applicationService = applicationService;
     }
 
     /** 운영자 화면용 전체 목록. 표시 순서대로 */
@@ -86,12 +90,15 @@ public class TimetableAdminService {
     }
 
     /**
-     * 공연을 삭제한다. 이 공연을 고른 인스타팅 신청의 wanted_slot_id는 DB FK가 null로 만든다.
+     * 공연을 삭제한다. 이 공연을 고른 인스타팅 신청의 선택은 먼저 비운다(신청은 남는다).
      * @throws CustomException TIMETABLE_SLOT_NOT_FOUND
      */
     @Transactional
     public void delete(Long slotId) {
-        timetableSlotRepository.delete(getSlotOrThrow(slotId));
+        TimetableSlot slot = getSlotOrThrow(slotId);
+        // H2 테스트 스키마엔 FK ON DELETE SET NULL이 없어 코드에서 끊는다(운영 MySQL도 같은 결과)
+        applicationService.detachWantedSlot(slotId);
+        timetableSlotRepository.delete(slot);
     }
 
     /**

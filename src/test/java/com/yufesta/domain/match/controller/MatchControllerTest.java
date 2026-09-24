@@ -47,6 +47,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @WebMvcTest(controllers = MatchController.class)
 class MatchControllerTest extends ControllerTestSupport {
 
+    @MockitoBean
+    private com.yufesta.domain.match.service.WantedSlotService wantedSlotService;
+
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 2, 15, 30);
 
     @MockitoBean
@@ -86,6 +89,24 @@ class MatchControllerTest extends ControllerTestSupport {
                 .andExpect(jsonPath("$.data.my.applied").value(true))
                 .andExpect(jsonPath("$.data.my.lastResult.status").value("MATCHED"))
                 .andExpect(jsonPath("$.data.my.userId").doesNotExist());
+    }
+
+    @Test
+    void 비로그인도_선택_가능한_공연_목록을_조회한다() throws Exception {
+        java.time.LocalDateTime start = java.time.LocalDateTime.of(2026, 10, 2, 16, 15);
+        com.yufesta.domain.match.dto.response.MatchSlotResponse slot = com.yufesta.domain.match.dto.response.MatchSlotResponse.builder()
+                .id(4L).title("HIPCOM").slotType(com.yufesta.domain.timetable.enums.SlotType.CLUB)
+                .startAt(start).endAt(start.plusMinutes(30)).stagePlaceId(1L).stageName("중앙 무대")
+                .build();
+        when(wantedSlotService.getSelectableSlots()).thenReturn(com.yufesta.domain.match.dto.response.MatchSlotsResponse.builder()
+                .roundSeq(1).publishAt(start.withMinute(0)).slots(java.util.List.of(slot)).build());
+
+        mockMvc.perform(get("/api/v1/match/slots"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roundSeq").value(1))
+                .andExpect(jsonPath("$.data.publishAt").value("2026-10-02T16:00:00"))
+                .andExpect(jsonPath("$.data.slots[0].title").value("HIPCOM"))
+                .andExpect(jsonPath("$.data.slots[0].stageName").value("중앙 무대"));
     }
 
     @Test

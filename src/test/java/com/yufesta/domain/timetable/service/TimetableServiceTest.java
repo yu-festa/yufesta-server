@@ -1,6 +1,7 @@
 package com.yufesta.domain.timetable.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.domain.place.entity.Place;
@@ -42,7 +43,8 @@ class TimetableServiceTest {
         timetableService = new TimetableService(timetableSlotRepository, clock);
         hipcom = slot(4L, "HIPCOM", NOW.withHour(16).withMinute(15), NOW.withHour(16).withMinute(45));
         cosmos = slot(5L, "COSMOS", NOW.withHour(16).withMinute(45), NOW.withHour(17).withMinute(15));
-        when(timetableSlotRepository.findAllWithStageOrderBySortOrder()).thenReturn(List.of(hipcom, cosmos));
+        // 단건·기준 시각 조회 테스트는 목록 스텁을 쓰지 않으므로 lenient
+        lenient().when(timetableSlotRepository.findAllWithStageOrderBySortOrder()).thenReturn(List.of(hipcom, cosmos));
     }
 
     @Test
@@ -93,6 +95,19 @@ class TimetableServiceTest {
         assertThat(first.isChanged()).isTrue();
         assertThat(first.changedFromStart()).isEqualTo(NOW.withHour(16).withMinute(15));
         assertThat(first.isLive()).isFalse();
+    }
+
+    @Test
+    void 기준_시각_이후_공연_조회와_단건_조회는_리포지토리에_위임하고_없으면_TIMETABLE_SLOT_NOT_FOUND다() {
+        when(timetableSlotRepository.findAllStartingAtOrAfterWithStage(NOW.withHour(16).withMinute(0))).thenReturn(List.of(hipcom, cosmos));
+        when(timetableSlotRepository.findById(4L)).thenReturn(java.util.Optional.of(hipcom));
+        when(timetableSlotRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        assertThat(timetableService.getSlotsStartingAtOrAfter(NOW.withHour(16).withMinute(0))).hasSize(2);
+        assertThat(timetableService.getSlot(4L)).isSameAs(hipcom);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> timetableService.getSlot(99L))
+                .isInstanceOf(com.yufesta.common.exception.CustomException.class)
+                .extracting("errorCode").isEqualTo(com.yufesta.common.exception.error.ErrorCode.TIMETABLE_SLOT_NOT_FOUND);
     }
 
     private static TimetableSlot slot(Long id, String title, LocalDateTime startAt, LocalDateTime endAt) {

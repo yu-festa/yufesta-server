@@ -124,6 +124,27 @@ class MatchResultServiceTest {
     }
 
     @Test
+    void 카드에_상대가_고른_공연과_나와_같은_공연인지_표시한다() {
+        publish(round1);
+        givenMyApplicationIn(round1);
+        mine.changeWantedSlot(slot(4L, PUBLISH_1.plusMinutes(15)));
+        Application same = application(21L, user(201L), round1, "수달", Set.of());
+        same.changeWantedSlot(slot(4L, PUBLISH_1.plusMinutes(15)));
+        Application none = application(22L, user(202L), round1, "판다", Set.of());
+        when(matchRepository.findAllByApplicationId(11L)).thenReturn(List.of(
+                match(77L, mine, same, "3.50"), match(78L, mine, none, "1.00")));
+        when(blockRepository.findAllByReporter_Id(ME)).thenReturn(List.of());
+        when(matchRoundService.findNextRound(round1)).thenReturn(Optional.empty());
+
+        MatchResultResponse result = service.getMyResult(ME, null);
+
+        assertThat(result.partners().get(0).wantedSlot().title()).isEqualTo("공연 4");
+        assertThat(result.partners().get(0).sameSlot()).isTrue();
+        assertThat(result.partners().get(1).wantedSlot()).isNull();
+        assertThat(result.partners().get(1).sameSlot()).isFalse();
+    }
+
+    @Test
     void 내가_신고한_상대의_카드는_제외되지만_매칭_상태는_유지된다() {
         publish(round1);
         givenMyApplicationIn(round1);
@@ -196,6 +217,22 @@ class MatchResultServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(expected);
+    }
+
+
+    private static com.yufesta.domain.timetable.entity.TimetableSlot slot(Long id, LocalDateTime startAt) {
+        com.yufesta.domain.place.entity.Place stage = com.yufesta.domain.place.entity.Place.builder()
+                .name("중앙 무대").category(com.yufesta.domain.place.enums.PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210")).longitude(new BigDecimal("128.7542100"))
+                .sortOrder(0).active(true)
+                .build();
+        ReflectionTestUtils.setField(stage, "id", 1L);
+        com.yufesta.domain.timetable.entity.TimetableSlot slot = com.yufesta.domain.timetable.entity.TimetableSlot.builder()
+                .sortOrder(id.intValue()).title("공연 " + id).slotType(com.yufesta.domain.timetable.enums.SlotType.CLUB)
+                .startAt(startAt).endAt(startAt.plusMinutes(30)).stage(stage)
+                .build();
+        ReflectionTestUtils.setField(slot, "id", id);
+        return slot;
     }
 
     private static MatchRound round(Long id, int seq, LocalDateTime publishAt) {
