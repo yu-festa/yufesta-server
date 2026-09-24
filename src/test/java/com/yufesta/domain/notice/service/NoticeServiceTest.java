@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.notice.dto.request.CreateNoticeRequest;
+import com.yufesta.domain.notice.dto.request.UpdateNoticeRequest;
 import com.yufesta.domain.notice.dto.response.NoticeResponse;
 import com.yufesta.domain.notice.entity.Notice;
 import com.yufesta.domain.notice.repository.NoticeRepository;
@@ -86,6 +87,27 @@ class NoticeServiceTest {
         org.mockito.ArgumentCaptor<Notice> captor = org.mockito.ArgumentCaptor.forClass(Notice.class);
         verify(noticeRepository).save(captor.capture());
         assertThat(captor.getValue().getCreatedBy()).isSameAs(admin);
+    }
+
+    @Test
+    void 운영자가_공지를_수정한다() {
+        Notice notice = notice(1L, "축제 안내", false, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+
+        NoticeResponse result = noticeService.update(7L, 1L, new UpdateNoticeRequest("변경된 축제 안내", "변경된 공지 본문", true));
+
+        assertThat(result)
+                .extracting(NoticeResponse::title, NoticeResponse::body, NoticeResponse::banner)
+                .containsExactly("변경된 축제 안내", "변경된 공지 본문", true);
+    }
+
+    @Test
+    void 없는_공지를_수정하면_예외가_발생한다() {
+        when(noticeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> noticeService.update(7L, 999L, new UpdateNoticeRequest("제목", "본문", false)))
+                .isInstanceOfSatisfying(CustomException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOTICE_NOT_FOUND));
     }
 
     private Notice notice(Long id, String title, boolean banner, LocalDateTime createdAt) {

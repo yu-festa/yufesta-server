@@ -3,6 +3,7 @@ package com.yufesta.domain.notice.service;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.notice.dto.request.CreateNoticeRequest;
+import com.yufesta.domain.notice.dto.request.UpdateNoticeRequest;
 import com.yufesta.domain.notice.dto.response.NoticeResponse;
 import com.yufesta.domain.notice.entity.Notice;
 import com.yufesta.domain.notice.repository.NoticeRepository;
@@ -43,9 +44,7 @@ public class NoticeService {
      * @throws CustomException NOTICE_NOT_FOUND
      */
     public NoticeResponse getNotice(Long noticeId) {
-        Notice notice = noticeRepository.findById(noticeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.NOTICE_NOT_FOUND));
-        return NoticeResponse.from(notice);
+        return NoticeResponse.from(getNoticeOrThrow(noticeId));
     }
 
     /**
@@ -62,6 +61,23 @@ public class NoticeService {
                 .createdBy(user)
                 .build();
         return NoticeResponse.from(noticeRepository.save(notice));
+    }
+
+    /**
+     * 운영자 공지의 제목, 본문, 긴급 배너 노출 여부를 수정한다(FR-NT-01, 03).
+     * @throws CustomException UNAUTHORIZED, NOTICE_NOT_FOUND
+     */
+    @Transactional
+    public NoticeResponse update(Long userId, Long noticeId, UpdateNoticeRequest request) {
+        requireLogin(userId);
+        Notice notice = getNoticeOrThrow(noticeId);
+        notice.update(request.title(), request.body(), request.banner());
+        return NoticeResponse.from(notice);
+    }
+
+    private Notice getNoticeOrThrow(Long noticeId) {
+        return noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new CustomException(ErrorCode.NOTICE_NOT_FOUND));
     }
 
     private User requireUser(Long userId) {
