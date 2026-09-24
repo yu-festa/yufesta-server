@@ -23,11 +23,12 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * 초기 데이터 마이그레이션(V2·V3·V4)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
+ * 초기 데이터 마이그레이션(V2~V5)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
  * V1은 MySQL 전용 문법이라 여기서 실행하지 않고, 스키마는 Hibernate가 엔티티로 만든다. 엔티티 저장이 필요한 케이스를 위해 Auditing 설정을 넣는다
  */
 @DataJpaTest
@@ -38,6 +39,9 @@ class InitialDataMigrationTest {
 
     @Autowired
     private DataSource dataSource;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private AppSettingRepository appSettingRepository;
@@ -126,6 +130,38 @@ class InitialDataMigrationTest {
         assertThat(timetableSlotRepository.findAllWithStageOrderBySortOrder())
                 .filteredOn(slot -> slot.getSlotType() != SlotType.CLUB)
                 .allSatisfy(slot -> assertThat(slot.getClub()).isNull());
+    }
+
+    @Test
+    void 제거된_지도_카테고리는_비노출_배달존으로_정규화한다() {
+        // Hibernate가 새 enum 값으로 만든 H2 CHECK 제약을 제거해 MySQL V1의 VARCHAR 상태를 재현한다.
+        jdbcTemplate.queryForList("""
+                        SELECT constraint_name
+                        FROM information_schema.table_constraints
+                        WHERE table_name = 'PLACES' AND constraint_type = 'CHECK'
+                        """, String.class)
+                .forEach(constraintName -> jdbcTemplate.execute(
+                        "ALTER TABLE places DROP CONSTRAINT " + constraintName
+                ));
+        jdbcTemplate.execute("ALTER TABLE places ALTER COLUMN category VARCHAR(10) NOT NULL");
+        jdbcTemplate.update("""
+                INSERT INTO places (name, category, lat, lng, sort_order, is_active, created_at, updated_at)
+                VALUES ('기존 부스', 'BOOTH', 35.8365210, 128.7542100, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """);
+
+        try {
+            populate("db/migration/V5__place_category_rework.sql");
+
+            Place migratedPlace = placeRepository.findAll().get(0);
+            assertThat(migratedPlace)
+                    .extracting(Place::getCategory, Place::isActive)
+                    .containsExactly(PlaceCategory.DELIVERY_ZONE, false);
+        } finally {
+            // H2의 DDL은 자동 커밋되어 fixture가 다음 테스트에 남을 수 있다.
+            // 타임테이블이 참조할 수 있는 다른 장소는 건드리지 않고 이 fixture만 정리한다.
+            jdbcTemplate.update("DELETE FROM places WHERE name = '기존 부스'");
+            jdbcTemplate.execute("ALTER TABLE places ALTER COLUMN category VARCHAR(20) NOT NULL");
+        }
     }
 
     private void populate(String path) {
