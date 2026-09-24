@@ -37,6 +37,9 @@ public enum ErrorCode {
     // 공지
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTICE_NOT_FOUND", "공지를 찾을 수 없습니다."),
 
+    // 분실물
+    LOST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_NOT_FOUND", "분실물 게시글을 찾을 수 없습니다."),
+
     // 인스타팅
     MATCH_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "MATCH_ROUND_NOT_FOUND", "회차를 찾을 수 없습니다."),
     MATCH_ROUND_NOT_OPEN(HttpStatus.CONFLICT, "MATCH_ROUND_NOT_OPEN", "지금은 신청을 받지 않는 시간이에요."),

@@ -20,6 +20,7 @@ import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -89,6 +90,37 @@ class LostItemServiceTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 
+    @Test
+    void 작성자_본인이_분실물_게시글을_해결_처리한다() {
+        LostItem lostItem = ownedLostItem(1L, 7L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+
+        LostItemResponse result = lostItemService.resolve(7L, 1L);
+
+        assertThat(result.status()).isEqualTo(LostItemStatus.RESOLVED);
+    }
+
+    @Test
+    void 작성자가_아닌_사용자가_분실물_게시글을_삭제하면_FORBIDDEN을_던진다() {
+        LostItem lostItem = ownedLostItem(1L, 7L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+
+        assertThatThrownBy(() -> lostItemService.delete(8L, 1L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void 작성자_본인이_분실물_게시글을_삭제하면_숨김_처리한다() {
+        LostItem lostItem = ownedLostItem(1L, 7L, LocalDateTime.of(2026, 10, 2, 14, 0));
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+
+        lostItemService.delete(7L, 1L);
+
+        assertThat(lostItem.isHidden()).isTrue();
+    }
+
     private static CreateLostItemRequest request() {
         return CreateLostItemRequest.builder()
                 .kind(LostItemKind.FOUND)
@@ -99,12 +131,22 @@ class LostItemServiceTest {
     }
 
     private static LostItem lostItem(Long id, LocalDateTime createdAt) {
+        return buildLostItem(id, org.mockito.Mockito.mock(User.class), createdAt);
+    }
+
+    private static LostItem ownedLostItem(Long id, Long authorId, LocalDateTime createdAt) {
+        User author = org.mockito.Mockito.mock(User.class);
+        when(author.getId()).thenReturn(authorId);
+        return buildLostItem(id, author, createdAt);
+    }
+
+    private static LostItem buildLostItem(Long id, User author, LocalDateTime createdAt) {
         LostItem lostItem = LostItem.builder()
                 .kind(LostItemKind.FOUND)
                 .description("검은색 카드지갑")
                 .placeText("중앙도서관 앞")
                 .displayName("수줍은 펭귄")
-                .author(org.mockito.Mockito.mock(User.class))
+                .author(author)
                 .build();
         ReflectionTestUtils.setField(lostItem, "id", id);
         ReflectionTestUtils.setField(lostItem, "createdAt", createdAt);

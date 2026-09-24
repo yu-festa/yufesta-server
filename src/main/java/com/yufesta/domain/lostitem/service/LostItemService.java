@@ -59,10 +59,44 @@ public class LostItemService {
         return LostItemResponse.from(lostItemRepository.save(lostItem));
     }
 
+    /**
+     * 작성자 본인이 자신의 분실물 게시글을 해결 처리한다(FR-LF-05).
+     * @throws CustomException UNAUTHORIZED, LOST_ITEM_NOT_FOUND, FORBIDDEN
+     */
+    @Transactional
+    public LostItemResponse resolve(Long userId, Long lostItemId) {
+        LostItem lostItem = requireOwnedLostItem(userId, lostItemId);
+        lostItem.resolve();
+        return LostItemResponse.from(lostItem);
+    }
+
+    /**
+     * 작성자 본인이 자신의 분실물 게시글을 소프트 삭제한다(FR-LF-05).
+     * @throws CustomException UNAUTHORIZED, LOST_ITEM_NOT_FOUND, FORBIDDEN
+     */
+    @Transactional
+    public void delete(Long userId, Long lostItemId) {
+        requireOwnedLostItem(userId, lostItemId).hide();
+    }
+
+    private LostItem requireOwnedLostItem(Long userId, Long lostItemId) {
+        requireLogin(userId);
+        LostItem lostItem = lostItemRepository.findById(lostItemId)
+                .orElseThrow(() -> new CustomException(ErrorCode.LOST_ITEM_NOT_FOUND));
+        if (!lostItem.isOwnedBy(userId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
+        return lostItem;
+    }
+
     private User requireUser(Long userId) {
+        requireLogin(userId);
+        return userService.getUser(userId);
+    }
+
+    private static void requireLogin(Long userId) {
         if (userId == null) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
-        return userService.getUser(userId);
     }
 }
