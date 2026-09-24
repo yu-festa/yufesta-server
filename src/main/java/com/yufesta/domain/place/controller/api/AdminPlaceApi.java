@@ -24,13 +24,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @SecurityRequirement(name = "cookieAuth")
 public interface AdminPlaceApi {
 
-    @Operation(summary = "장소 등록", description = "STAFF 또는 OWNER만 등록할 수 있다. CSRF 토큰이 필요하다. FR-ADM-08")
+    @Operation(summary = "장소 등록", description = "STAFF 또는 OWNER만 등록할 수 있다. 카테고리는 STAGE(공연장), TOILET(화장실), DELIVERY_ZONE(배달존)만 지원한다. CSRF 토큰이 필요하다. FR-ADM-08")
     @PostMapping
     ResponseEntity<ApiResponse<AdminPlaceResponse>> createPlace(
             @Valid @RequestBody CreatePlaceRequest request
     );
 
-    @Operation(summary = "장소 수정", description = "STAFF 또는 OWNER만 수정할 수 있다. 비노출 장소도 수정할 수 있다. CSRF 토큰이 필요하다. FR-ADM-08")
+    @Operation(summary = "장소 수정", description = "STAFF 또는 OWNER만 수정할 수 있다. 비노출 장소도 수정할 수 있다. 카테고리는 STAGE(공연장), TOILET(화장실), DELIVERY_ZONE(배달존)만 지원한다. CSRF 토큰이 필요하다. FR-ADM-08")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "PLACE_NOT_FOUND")
     @PatchMapping("/{placeId}")
     ApiResponse<AdminPlaceResponse> updatePlace(

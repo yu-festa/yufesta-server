@@ -5,8 +5,6 @@ package com.yufesta.domain.place.enums;
  */
 public enum PlaceCategory {
     STAGE,
-    BOOTH,
     TOILET,
-    AMENITY,
-    INFO
+    DELIVERY_ZONE
 }

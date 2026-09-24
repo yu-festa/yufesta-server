@@ -19,7 +19,7 @@ public record UpdatePlaceRequest(
         @Size(max = 50)
         String name,
 
-        @Schema(description = "장소 카테고리", example = "STAGE")
+        @Schema(description = "장소 카테고리(STAGE: 공연장 / TOILET: 화장실 / DELIVERY_ZONE: 배달존)", example = "STAGE")
         @NotNull
         PlaceCategory category,
 
