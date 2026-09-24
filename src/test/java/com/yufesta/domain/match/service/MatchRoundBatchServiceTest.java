@@ -150,6 +150,65 @@ class MatchRoundBatchServiceTest {
     }
 
     @Test
+    void 같은_공연을_고른_쌍은_slot_가중치를_받고_발표_전_시작_공연은_점수에_쓰지_않는다() {
+        round1.open();
+        givenLockedRound(round1);
+        // w1·m1: HIPCOM(16:15, 발표 16:00 이후) → +2. w2·m2: 신명마당(15:30, 발표 전) → 규칙 위반이라 무시
+        w1.changeWantedSlot(slot(4L, PUBLISH_1.plusMinutes(15)));
+        m1 = application(21L, 201L, round1, Gender.M, Set.of(MatchTag.MUSIC, MatchTag.CAFE));
+        m1.changeWantedSlot(slot(4L, PUBLISH_1.plusMinutes(15)));
+        w2.changeWantedSlot(slot(2L, PUBLISH_1.minusMinutes(30)));
+        m2.changeWantedSlot(slot(2L, PUBLISH_1.minusMinutes(30)));
+        givenPool(round1, w1, w2, m1, m2);
+        givenNoExclusions(round1);
+        givenSettings();
+        when(matchRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.close(1L);
+
+        ArgumentCaptor<List<Match>> captor = ArgumentCaptor.forClass(List.class);
+        verify(matchRepository).saveAll(captor.capture());
+        assertThat(captor.getValue())
+                .filteredOn(row -> row.getApplication().getId().equals(11L))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getPartnerApplication().getId()).isEqualTo(21L);
+                    assertThat(row.getScore()).isEqualByComparingTo("4");   // 공통 태그 2 × 1 + 같은 공연 2
+                });
+        assertThat(captor.getValue())
+                .filteredOn(row -> row.getApplication().getId().equals(12L))
+                .singleElement().satisfies(row -> {
+                    assertThat(row.getPartnerApplication().getId()).isEqualTo(22L);
+                    assertThat(row.getScore()).isEqualByComparingTo("1");   // 공통 태그 1, 공연 가중치 없음
+                });
+    }
+
+    @Test
+    void 이월_복사_시_다음_회차_발표_전_시작_공연은_비우고_이후_공연은_유지한다() {
+        round1.open();
+        round1.close();
+        givenLockedRound(round1);
+        when(matchRoundRepository.findBySeq(2)).thenReturn(Optional.of(round2));
+        when(matchRepository.findMatchedApplicationIdsByRoundId(1L)).thenReturn(Set.of(11L, 12L, 21L, 22L));
+        Application m4 = application(24L, 204L, round1, Gender.M, Set.of());
+        m3.changeWantedSlot(slot(4L, PUBLISH_1.plusMinutes(15)));      // 16:15 < 2회차 발표 20:00 → 비움
+        m4.changeWantedSlot(slot(13L, PUBLISH_2.plusMinutes(90)));     // 21:30 ≥ 20:00 → 유지
+        givenPool(round1, w1, w2, m1, m2, m3, m4);
+        when(applicationRepository.existsByUser_IdAndRound_Id(203L, 2L)).thenReturn(false);
+        when(applicationRepository.existsByUser_IdAndRound_Id(204L, 2L)).thenReturn(false);
+        when(applicationRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.publish(1L);
+
+        ArgumentCaptor<List<Application>> captor = ArgumentCaptor.forClass(List.class);
+        verify(applicationRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue()).filteredOn(copy -> copy.getSourceApplication() == m3)
+                .singleElement().satisfies(copy -> assertThat(copy.getWantedSlot()).isNull());
+        assertThat(captor.getValue()).filteredOn(copy -> copy.getSourceApplication() == m4)
+                .singleElement().satisfies(copy -> assertThat(copy.getWantedSlot().getId()).isEqualTo(13L));
+    }
+
+    @Test
     void 가중치와_N은_설정에서_읽는다() {
         round1.open();
         givenLockedRound(round1);
@@ -300,6 +359,22 @@ class MatchRoundBatchServiceTest {
                 .build();
         ReflectionTestUtils.setField(round, "id", id);
         return round;
+    }
+
+
+    private static com.yufesta.domain.timetable.entity.TimetableSlot slot(Long id, LocalDateTime startAt) {
+        com.yufesta.domain.place.entity.Place stage = com.yufesta.domain.place.entity.Place.builder()
+                .name("중앙 무대").category(com.yufesta.domain.place.enums.PlaceCategory.STAGE)
+                .latitude(new BigDecimal("35.8365210")).longitude(new BigDecimal("128.7542100"))
+                .sortOrder(0).active(true)
+                .build();
+        ReflectionTestUtils.setField(stage, "id", 1L);
+        com.yufesta.domain.timetable.entity.TimetableSlot slot = com.yufesta.domain.timetable.entity.TimetableSlot.builder()
+                .sortOrder(id.intValue()).title("공연 " + id).slotType(com.yufesta.domain.timetable.enums.SlotType.CLUB)
+                .startAt(startAt).endAt(startAt.plusMinutes(30)).stage(stage)
+                .build();
+        ReflectionTestUtils.setField(slot, "id", id);
+        return slot;
     }
 
     private static Application application(Long id, Long userId, MatchRound round, Gender gender, Set<MatchTag> tags) {

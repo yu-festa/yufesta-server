@@ -320,7 +320,7 @@ denyAll     : anyRequest
 - 회원당 회차 1건(`uk_app_user_round`), 인스타 ID 회차 내 유니크(`uk_app_round_insta`). 인스타 ID 정규화: trim → 선행 `@` 제거 → 소문자 → `^[a-z0-9._]{1,30}$` 검사. 닉네임 2~8자, 성별 M/F 필수, 태그 ≤3(고정 10개 목록 외 거부), 소개 ≤40자.
 - 동의 없이는 저장 불가: `terms_version`, `privacy_version`, `age_confirmed=1`, `agreed_at` 기록(FR-MT-11·12).
 - `matching_blocked_at`이 있는 회원은 신청 거부(`USER_MATCHING_BLOCKED`).
-- **보고 싶은 공연(FR-MT-05)**: `slot.start_at >= round.publish_at`인 공연만 허용. 신청·수정 시 검증하고, 배치에서도 재검증해 위반 슬롯은 점수 계산에서 제외(타임테이블 변경 대비).
+- **보고 싶은 공연(FR-MT-05)**: `slot.start_at >= round.publish_at`인 공연만 허용(구분 무관, 지연 전 원래 시각 기준). 신청·수정 시 검증하고, 배치에서도 재검증해 위반 슬롯은 점수 계산에서 제외(타임테이블 변경 대비). 구현: 규칙은 `MatchRound.allowsWantedSlot` 한 곳, 복사·배치는 `Application.wantedSlotFor(round)`, 신청·수정 검증과 선택지 목록(`GET /api/v1/match/slots`)은 `WantedSlotService`. 공연 삭제 시 `ApplicationService.detachWantedSlot`이 선택만 비운다(`TimetableAdminService.delete`가 호출). 복사본의 재선택 안내는 `ApplicationResponse.needsSlotReselect`(원본엔 공연이 있고 지금은 없으면 true, 별도 컬럼 없음). 상대 카드는 `wantedSlot`·`sameSlot`.
 - **이월 모델(FR-MT-03)**: 회차 발표 트랜잭션에서 미매칭 신청을 다음 회차 행으로 복사(`entry_type = CARRIED`, `source_application_id` = 원본, 태그 포함, `wanted_slot_id`는 FR-MT-05 조건을 만족할 때만 유지). 1회차 매칭자의 "2회차도 참여"도 같은 복사(`REJOIN`, `POST /api/v1/match/applications/rejoin`). 이미 직접 신청한 사용자는 `uk_app_user_round`로 건너뛴다. `join_next_round` 컬럼은 없다. 복사 후 사용자는 2회차 신청 수정 화면(`PATCH /applications/me`)에서 내용을 확인·수정한다. 프론트는 재참여 201 응답 직후와 이월 안내(FR-MT-35)에서 이 화면을 미리 채운 상태로 연다. 타임테이블 연동 시 복사되는 `wanted_slot_id`가 조건을 어기면 `null`로 비우고 응답에 재선택 필요 표시를 넣는다.
 - 배치 풀 = `round_id = 해당 회차 AND canceled_at IS NULL AND users.matching_blocked_at IS NULL`. 이전 회차를 조회하지 않는다.
 - 점수 = 공통 태그 × `match.weight.tag` + 같은 공연 × `match.weight.slot` + 나이대 동일 × `match.weight.age_same` 또는 인접 × `match.weight.age_adjacent`. 가중치는 `AppSettingReader`로 읽는다. 하드코딩 금지.
@@ -370,6 +370,7 @@ denyAll     : anyRequest
 | 메서드·경로 | 설명 | 인증 |
 |---|---|---|
 | GET /api/v1/match/summary | 홈 인스타팅 블록 | 선택 |
+| GET /api/v1/match/slots | 현재 회차에서 고를 수 있는 공연(발표 이후 시작) | - |
 | POST /api/v1/match/applications | 신청 | 필수 |
 | GET / PATCH / DELETE /api/v1/match/applications/me | 내 신청 조회·수정·취소 | 필수 |
 | POST /api/v1/match/applications/rejoin | 2회차 재참여(1회차 신청 복사, FR-MT-03) | 필수 |
