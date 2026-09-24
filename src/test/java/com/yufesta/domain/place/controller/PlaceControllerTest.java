@@ -36,11 +36,30 @@ class PlaceControllerTest extends ControllerTestSupport {
 
     @Test
     void 카테고리로_장소를_필터링한다() throws Exception {
-        when(placeService.getPlaces(PlaceCategory.TOILET)).thenReturn(List.of(placeListResponse()));
+        when(placeService.getPlaces(PlaceCategory.TOILET))
+                .thenReturn(List.of(placeListResponse(PlaceCategory.TOILET)));
 
         mockMvc.perform(get("/api/v1/places").param("category", "TOILET"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(1));
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].category").value("TOILET"));
+    }
+
+    @Test
+    void 배달존_카테고리로_장소를_필터링한다() throws Exception {
+        when(placeService.getPlaces(PlaceCategory.DELIVERY_ZONE))
+                .thenReturn(List.of(placeListResponse(PlaceCategory.DELIVERY_ZONE)));
+
+        mockMvc.perform(get("/api/v1/places").param("category", "DELIVERY_ZONE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].category").value("DELIVERY_ZONE"));
+    }
+
+    @Test
+    void 제거된_카테고리로는_장소를_필터링할_수_없다() throws Exception {
+        mockMvc.perform(get("/api/v1/places").param("category", "BOOTH"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER_TYPE"));
     }
 
     @Test
@@ -54,10 +73,14 @@ class PlaceControllerTest extends ControllerTestSupport {
     }
 
     private static PlaceListResponse placeListResponse() {
+        return placeListResponse(PlaceCategory.STAGE);
+    }
+
+    private static PlaceListResponse placeListResponse(PlaceCategory category) {
         return PlaceListResponse.builder()
                 .id(1L)
                 .name("중앙 무대")
-                .category(PlaceCategory.STAGE)
+                .category(category)
                 .latitude(new BigDecimal("37.1234567"))
                 .longitude(new BigDecimal("127.1234567"))
                 .build();
