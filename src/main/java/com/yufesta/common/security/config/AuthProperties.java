@@ -22,10 +22,19 @@ public record AuthProperties(
     ) {
     }
 
+    /**
+     * 쿠키 옵션. domain의 선행 '.'은 뗀다. 브라우저는 RFC 6265에 따라 무시하는 문자지만
+     * Tomcat의 Rfc6265CookieProcessor는 거부하므로, response.addCookie로 나가는 XSRF-TOKEN이 500이 된다
+     */
     public record Cookie(
             String name,
             boolean secure,
             String domain
     ) {
+        public Cookie {
+            if (domain != null && domain.startsWith(".")) {
+                domain = domain.substring(1);
+            }
+        }
     }
 }

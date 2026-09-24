@@ -47,9 +47,9 @@ variable "allowed_origins" {
 }
 
 variable "cookie_domain" {
-  description = "access_token·XSRF-TOKEN 쿠키 domain(AUTH_COOKIE_DOMAIN). 프론트가 API 쿠키를 읽으려면 상위 도메인이어야 한다"
+  description = "access_token·XSRF-TOKEN 쿠키 domain(AUTH_COOKIE_DOMAIN). 프론트가 API 쿠키를 읽으려면 상위 도메인이어야 한다. 선행 . 없이(Tomcat이 거부)"
   type        = string
-  default     = ".yufesta.com"
+  default     = "yufesta.com"
 }
 
 variable "ssm_prefix" {
