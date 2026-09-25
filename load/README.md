@@ -3,6 +3,7 @@
 - `verify.sql` — 배치 정합성 불변식을 실제 MySQL에서 확인한다. 자동 테스트(`MatchRoundBatchInvariantTest`)와 같은 규칙이며,
   1절의 `violations`가 모두 0이어야 한다. 2절은 회차별 요약(풀·매칭·미매칭·쌍·평균 점수·이월·배치 지연)으로 측정 기록용이다.
 
+- `dbsql.sh` — 아래 SQL 파일들을 운영 RDS에서 파일 그대로 실행하고 결과를 출력한다(붙여넣기 불필요).
 - `sample.sql` — 매칭 결과를 눈으로 읽는다. 참가자 속성, 쌍별 점수 근거(공통 태그 수·같은 공연·나이대), 파트너 수 분포, 미매칭자.
   개인정보라 `instagram_id`는 뽑지 않는다.
 
@@ -53,11 +54,21 @@ export JWT_SECRET=$(aws ssm get-parameter --name /yufesta/prod/JWT_SECRET --with
 한 번에 몰아서 하지 않는다. 세션마다 필요한 "회차 상태"만 맞으면 독립적으로 다시 돌릴 수 있고,
 중간에 실패해도 그 세션만 반복하면 된다. 시작 전·후에 `status.sql`로 지금 상태를 확인한다.
 
+SQL은 `dbsql.sh`로 **파일 그대로** 실행한다. 일회성 Fargate 태스크에 파일 내용을 넘겨 돌리고 결과를 CloudWatch 로그에서 받아오므로,
+dbshell 프롬프트에 수십 줄을 붙여넣다 실패할 일이 없다(태스크는 끝나면 스스로 종료된다).
+
 ```bash
-# 어느 단계까지 준비돼 있는지 (합성 회원 수, 회차 상태, 세션별 준비 여부)
+export AWS_PROFILE=yufesta
+./load/dbsql.sh load/status.sql      # 지금 상태 (합성 회원 수, 회차, 세션별 준비 여부)
+./load/dbsql.sh load/seed.sql        # 합성 회원 1,000명 + 신청
+./load/dbsql.sh load/verify.sql      # 정합성 위반 0 확인
+./load/dbsql.sh load/cleanup.sql     # 정리
+
+# 로컬은 그대로 파이프
 docker compose exec -T mysql mysql --default-character-set=utf8mb4 -uroot -pyufesta yufesta < load/status.sql
-# 운영은 dbshell에 붙여넣기
 ```
+
+직접 쿼리를 두드려야 할 때만 대화형 dbshell(`infra/README.md` 3-1)을 쓴다.
 
 공통 환경 변수는 세션마다 다시 export 한다(터미널을 새로 열면 사라진다).
 
@@ -85,7 +96,8 @@ D는 한계와 Redis 판단, E는 당일 장애 대응, F는 누수 확인용이
 **세션 A — 준비와 쓰기 부하** (회차가 OPEN이어야 한다)
 
 ```bash
-# 1) 시드: dbshell에서 seed.sql 실행 → min_user_id 메모
+# 1) 시드 → 출력된 min_user_id 메모
+./load/dbsql.sh load/seed.sql
 # 2) 스크립트·토큰 확인
 $K6 load/scenarios/smoke.js
 # 3) 마감 직전 신청 폭주(유니크 제약·잠금 경합). 대부분 409(이미 신청)가 정상이다
@@ -99,7 +111,7 @@ $K6 load/scenarios/write-apply.js
 BASE_URL=$BASE_URL ACCESS_TOKEN=<쿠키> ./load/collect-metrics.sh sessionB.csv
 # 2) 운영자 Swagger 또는 curl로 마감 → 응답까지 걸린 시간과 로그의 "배치: 풀 N명, M쌍" 기록(NFR-PF-03)
 #    POST /api/v1/admin/match/rounds/{id}/close
-# 3) verify.sql 로 위반 0 확인
+# 3) ./load/dbsql.sh load/verify.sql 로 위반 0 확인
 # 4) 발표 후 곧바로 스파이크(발표 직후 1,000명 결과 조회, NFR-PF-01)
 #    POST /api/v1/admin/match/rounds/{id}/publish
 ulimit -n 10240
