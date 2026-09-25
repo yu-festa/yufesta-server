@@ -19,6 +19,14 @@ SELECT r.seq, r.status, r.open_at, r.close_at, r.publish_at, r.executed_at, r.pu
        (SELECT COUNT(*) / 2 FROM `matches` m WHERE m.round_id = r.id) AS pairs
 FROM match_rounds r ORDER BY r.seq;
 
+SELECT '=== DB 커넥션 여유 (풀 크기 결정용) ===' AS report;
+
+-- 태스크 수 × Hikari maximum-pool-size 가 max_connections보다 충분히 작아야 한다.
+-- 롤링 배포 중에는 태스크가 2배가 되므로 그 상태(4 × 풀 크기)도 견뎌야 한다
+SELECT @@max_connections AS max_connections,
+       (SELECT COUNT(*) FROM information_schema.processlist) AS current_connections,
+       @@max_connections - (SELECT COUNT(*) FROM information_schema.processlist) AS headroom;
+
 SELECT '=== 세션별 준비 여부 ===' AS report;
 
 SELECT
