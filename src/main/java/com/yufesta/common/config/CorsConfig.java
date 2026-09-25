@@ -17,6 +17,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfig {
 
     private static final String XSRF_TOKEN_HEADER = "X-XSRF-TOKEN";
+    private static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     // SecurityConfig의 http.cors()가 이 빈 이름(corsConfigurationSource)을 찾아 사용
     @Bean
@@ -24,7 +25,9 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins(authProperties));
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, XSRF_TOKEN_HEADER));
+        configuration.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, XSRF_TOKEN_HEADER, REQUEST_ID_HEADER));
+        // 프론트가 오류 문의 시 요청 ID를 알려줄 수 있도록 응답 헤더를 읽게 허용한다
+        configuration.setExposedHeaders(List.of(REQUEST_ID_HEADER));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
