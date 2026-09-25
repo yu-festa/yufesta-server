@@ -426,6 +426,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 - 컨트롤러: `@WebMvcTest(controllers = X.class)` + `@MockitoBean` 서비스, `src/test/java/com/yufesta/support/ControllerTestSupport` 상속(실제 SecurityConfig·CorsConfig를 슬라이스에 넣고 보안 협력 빈은 mock). principal이 `Long`이라 `@WithMockUser`로는 `userId`가 null이 된다. `src/test/java/com/yufesta/support/WithMockLoginUser`(`id`·`role` 지정)를 쓴다.
 - 시간 의존 로직은 `Clock.fixed`. `Thread.sleep`으로 시간을 맞추지 않는다.
 - 매칭 엔진: 순수 단위 테스트. 최소 케이스 — 1:1 완전 매칭, 성비 2:1에서 전원 배정, N 상한 초과 시 미매칭 발생, 차단 쌍 제외, 이전 회차 쌍 제외, 동점 결정성, 한쪽 0명.
+- 배치 전체(풀→엔진→저장→발표→이월)는 `MatchRoundBatchInvariantTest`(`@SpringBootTest` + `@Transactional`, 고정 시드 1,000명)가 불변식으로 검증한다: 거울 행·동성 없음·차단 쌍 없음·파트너 상한·점수 재계산(엔진 메서드를 부르지 않고 따로 계산)·재실행 결정성·이월 규칙. 같은 불변식의 SQL 판은 `load/verify.sql`이며 리허설·부하 테스트 뒤 실제 MySQL에서 돌린다. 성비별 미매칭 수용량은 `MatchingEngineCapacityTest`(미매칭 = `max(0, 다수 − 소수 × N)`).
 - 새 기능에는 서비스 단위 테스트가 반드시 포함된다. 커버리지 수치는 강제하지 않는다.
 - 라이브러리 추가는 사람이 결정한다. 도입됨: `spring-boot-starter-flyway`+`flyway-mysql`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`. 합의된 후보: `spring-boot-starter-data-redis`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
 
