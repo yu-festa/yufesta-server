@@ -49,7 +49,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 ```
 
 - Swagger: http://localhost:8080/swagger-ui/index.html , 스펙 `/v3/api-docs/public`·`/v3/api-docs/admin`. 운영은 `SWAGGER_ENABLED`(Terraform `swagger_enabled`)로 연동 기간에만 켜고 축제 전 끈다. `OpenApiConfig`가 경로·메서드로 §7 규칙을 흉내 내 로그인 표시(cookieAuth)와 공통 오류를 붙이므로 인터페이스에는 도메인 고유 오류만 적는다
-- 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
+- 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지). `/actuator/metrics`는 OWNER만 볼 수 있고 부하 테스트 중 Hikari·Tomcat·JVM 지표를 읽는 용도다(`load/collect-metrics.sh`)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
@@ -313,7 +313,7 @@ denyAll     : anyRequest
 - prod는 `server.forward-headers-strategy: framework`. ALB가 TLS를 끝내고 HTTP로 넘기므로 `X-Forwarded-Proto`로 redirect-uri와 리다이렉트 URL을 https로 만든다. dev에는 두지 않는다(프록시가 없어 헤더 위조가 가능).
 - CORS 허용 origin은 `app.auth.allowed-origins`(환경변수 `ALLOWED_ORIGINS`, 쉼표 구분). 비어 있으면 `frontend-url` 하나. `frontend-url`은 로그인 후 리다이렉트 기준이라 항상 하나다.
 - 작성 금지(`write_banned_at`)·매칭 차단(`matching_blocked_at`)은 토큰이 아니라 쓰기 시점에 DB로 확인한다(FR-AUTH-08).
-- 운영자 API 호출은 접근 로그에 userId가 남아야 한다(NFR-SC-05). `RequestLoggingFilter`가 MDC의 `userId`를 함께 찍도록 확장한다.
+- 접근 로그에는 요청마다 `[req=요청ID user=회원ID]`가 붙는다(`RequestLoggingFilter`가 MDC에 넣고 `logging.pattern.level`이 출력). 요청 ID는 클라이언트의 `X-Request-Id`를 이어받거나(형식 검사 후) 새로 만들고 응답 헤더로 돌려준다. 운영자 API 호출자 식별(NFR-SC-05)과 부하·장애 분석에 쓴다.
 
 ## 8. 도메인 불변 규칙 (SRS 요약 — 위반 금지)
 
@@ -439,7 +439,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
-14. `RequestLoggingFilter`에 MDC `userId`·`X-Request-Id` 없음
 
 ## 13. 개선 후보 (MVP 이후)
 
