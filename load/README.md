@@ -3,6 +3,7 @@
 - `verify.sql` — 배치 정합성 불변식을 실제 MySQL에서 확인한다. 자동 테스트(`MatchRoundBatchInvariantTest`)와 같은 규칙이며,
   1절의 `violations`가 모두 0이어야 한다. 2절은 회차별 요약(풀·매칭·미매칭·쌍·평균 점수·이월·배치 지연)으로 측정 기록용이다.
 
+- `dbsql.sh` — 아래 SQL 파일들을 운영 RDS에서 파일 그대로 실행하고 결과를 출력한다(붙여넣기 불필요).
 - `sample.sql` — 매칭 결과를 눈으로 읽는다. 참가자 속성, 쌍별 점수 근거(공통 태그 수·같은 공연·나이대), 파트너 수 분포, 미매칭자.
   개인정보라 `instagram_id`는 뽑지 않는다.
 
@@ -53,25 +54,40 @@ export JWT_SECRET=$(aws ssm get-parameter --name /yufesta/prod/JWT_SECRET --with
 한 번에 몰아서 하지 않는다. 세션마다 필요한 "회차 상태"만 맞으면 독립적으로 다시 돌릴 수 있고,
 중간에 실패해도 그 세션만 반복하면 된다. 시작 전·후에 `status.sql`로 지금 상태를 확인한다.
 
+SQL은 `dbsql.sh`로 **파일 그대로** 실행한다. 일회성 Fargate 태스크에 파일 내용을 넘겨 돌리고 결과를 CloudWatch 로그에서 받아오므로,
+dbshell 프롬프트에 수십 줄을 붙여넣다 실패할 일이 없다(태스크는 끝나면 스스로 종료된다).
+
 ```bash
-# 어느 단계까지 준비돼 있는지 (합성 회원 수, 회차 상태, 세션별 준비 여부)
+export AWS_PROFILE=yufesta
+./load/dbsql.sh load/status.sql      # 지금 상태 (합성 회원 수, 회차, 세션별 준비 여부)
+./load/dbsql.sh load/seed.sql        # 합성 회원 1,000명 + 신청
+./load/dbsql.sh load/verify.sql      # 정합성 위반 0 확인
+./load/dbsql.sh load/cleanup.sql     # 정리
+
+# 로컬은 그대로 파이프
 docker compose exec -T mysql mysql --default-character-set=utf8mb4 -uroot -pyufesta yufesta < load/status.sql
-# 운영은 dbshell에 붙여넣기
 ```
 
+직접 쿼리를 두드려야 할 때만 대화형 dbshell(`infra/README.md` 3-1)을 쓴다.
+
 공통 환경 변수는 세션마다 다시 export 한다(터미널을 새로 열면 사라진다).
+k6는 export된 환경변수를 그대로 읽으므로 `-e` 플래그를 붙이지 않아도 된다.
 
 ```bash
 export AWS_PROFILE=yufesta
 export BASE_URL=https://api.yufesta.com
 export JWT_SECRET=$(aws ssm get-parameter --name /yufesta/prod/JWT_SECRET --with-decryption --query 'Parameter.Value' --output text)
-export UID_FROM=<status.sql의 min_user_id>
-K6="k6 run -e BASE_URL=$BASE_URL -e JWT_SECRET=$JWT_SECRET -e USER_ID_FROM=$UID_FROM -e USER_COUNT=1000"
+export USER_ID_FROM=<status.sql의 min_user_id>
+export USER_COUNT=1000
+echo "$BASE_URL / secret ${#JWT_SECRET}바이트 / from $USER_ID_FROM"   # 값이 비어 있지 않은지 확인
 ```
+
+명령을 `K6="k6 run …"` 처럼 변수에 담아 `$K6`로 실행하지 말 것. zsh는 bash와 달리 변수를 단어로 쪼개지 않아
+전체가 하나의 명령 이름이 되고 `command not found`가 난다.
 
 | 세션 | 필요한 상태 | 하는 일 | 소요 | 실패하면 |
 |---|---|---|---|---|
-| **A. 준비·쓰기** | 회차 OPEN | `seed.sql` → `smoke.js` → `write-apply.js` | 5분 | A만 다시 |
+| **A. 준비·쓰기** | 회차 OPEN | `seed.sql` → `smoke.js` → `write-apply.js`(동시 50·200 비교) | 8분 | A만 다시 |
 | **B. 배치·발표** | A 완료, 회차 OPEN | `close` 시간 측정 → `verify.sql` → `publish` → `publish-spike.js` | 10분 | 회차 초기화 후 A부터 |
 | **C. 평균 부하** | 시드 | `read-mix.js` (300 req/s 10분) | 10분 | C만 다시 |
 | **D. 한계 탐색** | 시드, B 완료(결과 조회) | `stress.js` → `breakpoint.js` | 30분 | 해당 시나리오만 다시 |
@@ -85,11 +101,14 @@ D는 한계와 Redis 판단, E는 당일 장애 대응, F는 누수 확인용이
 **세션 A — 준비와 쓰기 부하** (회차가 OPEN이어야 한다)
 
 ```bash
-# 1) 시드: dbshell에서 seed.sql 실행 → min_user_id 메모
+# 1) 시드 → 출력된 min_user_id 메모
+./load/dbsql.sh load/seed.sql
 # 2) 스크립트·토큰 확인
-$K6 load/scenarios/smoke.js
-# 3) 마감 직전 신청 폭주(유니크 제약·잠금 경합). 대부분 409(이미 신청)가 정상이다
-$K6 load/scenarios/write-apply.js
+k6 run load/scenarios/smoke.js
+# 3) 마감 직전 신청 폭주(유니크 제약·잠금 경합). 대부분 409(이미 신청)가 정상이다.
+#    지표 수집(collect-metrics.sh)을 켠 상태로 동시 실행 수를 바꿔 두 번 돌려 비교한다
+k6 run load/scenarios/write-apply.js                    # 동시 50 (현실적인 마감 직전)
+CONCURRENCY=200 k6 run load/scenarios/write-apply.js    # 동시 200 (최악, 썬더링 허드)
 ```
 
 **세션 B — 배치와 발표 스파이크** (여기서 회차가 PUBLISHED로 바뀐다)
@@ -99,20 +118,20 @@ $K6 load/scenarios/write-apply.js
 BASE_URL=$BASE_URL ACCESS_TOKEN=<쿠키> ./load/collect-metrics.sh sessionB.csv
 # 2) 운영자 Swagger 또는 curl로 마감 → 응답까지 걸린 시간과 로그의 "배치: 풀 N명, M쌍" 기록(NFR-PF-03)
 #    POST /api/v1/admin/match/rounds/{id}/close
-# 3) verify.sql 로 위반 0 확인
+# 3) ./load/dbsql.sh load/verify.sql 로 위반 0 확인
 # 4) 발표 후 곧바로 스파이크(발표 직후 1,000명 결과 조회, NFR-PF-01)
 #    POST /api/v1/admin/match/rounds/{id}/publish
 ulimit -n 10240
-$K6 load/scenarios/publish-spike.js
+k6 run load/scenarios/publish-spike.js
 ```
 
 **세션 C~F**
 
 ```bash
-$K6 load/scenarios/read-mix.js                          # C. 평균 300 req/s 10분
-$K6 load/scenarios/stress.js                            # D. 300→2,400 req/s 단계
-$K6 load/scenarios/breakpoint.js                        # D. 결과 조회 한계점(임계값 깨지면 자동 중단)
-$K6 -e RATE=150 -e DURATION=30m load/scenarios/read-mix.js   # F. soak
+k6 run load/scenarios/read-mix.js                          # C. 평균 300 req/s 10분
+k6 run load/scenarios/stress.js                            # D. 300→2,400 req/s 단계
+k6 run load/scenarios/breakpoint.js                        # D. 결과 조회 한계점(임계값 깨지면 자동 중단)
+RATE=150 DURATION=30m k6 run load/scenarios/read-mix.js   # F. soak
 ```
 
 **세션 E — 복원력** (C의 `read-mix.js`가 도는 중에 실행)
@@ -172,9 +191,80 @@ aws logs tail /ecs/yufesta-api --follow --filter-pattern "회차"
 
 ### 결과 기록
 
-| 날짜 | 시나리오 | 부하 | p50 / p95 / p99 | 오류율 | ECS CPU | RDS CPU / 연결 | Hikari pending | 판단 |
-|---|---|---|---|---|---|---|---|---|
-| (측정 후 채움) | | | | | | | | |
+| 날짜 | 시나리오 | 부하 | med / p90 / p95 | 오류율 | 비고 |
+|---|---|---|---|---|---|
+| 09-25 | A. smoke | 5 VU · 30 req/s · 1분 | 26 / 86 / 101 ms | 0% (1,824 체크 전부 통과) | 기준선. 공개 읽기 6종 + 쿠키 인증 2종 모두 정상, 최대 538ms |
+| 09-25 | A. write-apply (콜드) | 동시 200 · 67 req/s | 2,070 / 4,010 / 4,740 ms | 0% | **첫 쓰기 부하**. JIT·쿼리 플랜·풀이 식은 상태 |
+| 09-25 | A. write-apply (웜) | 동시 50 · 140 req/s | 303 / 616 / 721 ms | 0% | 현실적인 마감 직전. 임계값 통과 |
+| 09-25 | A. write-apply (웜) | 동시 200 · 160 req/s | 935 / 1,780 / 1,910 ms | 0% | 같은 동시성인데 콜드 대비 p95 2.5배 개선 |
+| 09-25 | B. 배치(close) | 1,001명 · 540쌍 | **8.6초** | - | NFR-PF-03(500명 30초) 통과. 정합성 12종 위반 0 |
+| 09-25 | B. publish-spike `results/me` | 1,000 VU · 162 req/s | 376 / 2,890 / **3,760** ms | 0% | 임계값 1초 초과 |
+| 09-25 | B. publish-spike `summary` | 5초 폴링 · 3분 20초 | 52 / 2,900 / **4,390** ms | 0% | 최대 16초. 5xx·타임아웃 0건 |
+
+측정은 맥북에서 서울 리전까지 인터넷을 거친 값이라 네트워크 왕복이 포함돼 있다(최소 13.5ms).
+서버 자체 처리 시간은 CloudWatch의 ALB `TargetResponseTime`과 비교해 가른다.
+
+**쓰기 부하에서 읽은 것** (2026-09-25)
+
+- 동시 실행 수를 50 → 200으로 4배 올려도 처리량은 140 → 160 req/s로 거의 그대로이고 응답 시간만 332ms → 966ms로 3배가 됐다.
+  처리량이 천장에 닿았고 그 위로는 전부 대기열이라는 뜻이다. 쓰기 처리량 상한은 **약 150 req/s**로 본다.
+- 현실적인 최악(마감 1분 전 200명 = 3.3 req/s)의 45배 여유라 쓰기는 병목이 아니다. 조치 없음.
+- 같은 동시 200에서 첫 실행 p95 4.74초, 두 번째 1.91초. **콜드 스타트(JIT·Hibernate 쿼리 플랜·커넥션 풀 확장)가 2.5배**다.
+  축제 당일에는 사전 오픈부터 트래픽이 있어 이미 예열된 상태이므로 콜드 수치는 참고치로만 둔다.
+- 전 구간에서 5xx 0건. 200명이 동시에 신청해도 유니크 제약·CSRF·락이 규칙대로 동작했다(409 정상 처리).
+
+**병목 위치 (지표로 확정)**
+
+| 동시 | CPU | 힙 | Tomcat busy / current | Hikari active / pending / idle | 서버 측 최대 응답 |
+|---|---|---|---|---|---|
+| 50 | 5.7% | 60 MB | 36 / 38 | 8 / **1** / 1 | 0.90s |
+| 200 | 6.7% | 86 MB | 6 / 66 | 9 / **18** / 0 | 1.70s |
+
+CPU 7%, 힙 86MB, Tomcat 스레드 66/200으로 전부 여유인데 **커넥션 풀만 10개가 모두 차고 18개가 대기**했다.
+병목은 컴퓨트가 아니라 **DB 커넥션 풀**이다(태스크당 Hikari 기본값 10, 태스크 2개로 총 20).
+동시 실행 수를 4배 올려도 처리량이 140 → 160 req/s로 멈춘 것과 정확히 맞는다. 풀 크기가 처리량 상한을 정하고 있다.
+
+클라이언트가 잰 최대(2.5s)와 서버가 잰 최대(1.70s)의 차이 약 0.8초는 ALB 대기와 네트워크다.
+
+**세션 B: 같은 병목이 훨씬 크게 나타났다** (2026-09-25, 발표 직후 1,000명)
+
+| 시각 | CPU | 힙 | Tomcat busy / current | Hikari active / **pending** / idle | 서버 최대 응답 |
+|---|---|---|---|---|---|
+| 20:54:48 | 21% | 92 MB | 101 / 200 | 10 / **149** / 1 | 3.4s |
+| 20:55:24 | 26% | 84 MB | **200 / 200** | 9 / **189** / 0 | 13.6s |
+| 20:55:52 | 26% | 96 MB | 41 / 123 | 9 / **66** / 0 | 4.0s |
+| 20:56:46 | 26% | 117 MB | 20 / 145 | 10 / 40 / 9 | 13.6s |
+
+읽는 법: CPU는 26%, 힙은 117MB로 여전히 한가한데 **Tomcat 스레드 200개가 전부 차고(최대치) 커넥션 대기가 189개**까지 갔다.
+요청이 들어오면 스레드는 받지만 DB 커넥션 10개를 기다리느라 전부 블로킹된 것이다. CPU가 노는 이유도 이것이다.
+
+처리량은 162 req/s에서 멈췄다. 커넥션 20개(태스크당 10 × 2)로 162 req/s면 요청당 커넥션 점유가 약 123ms다.
+반면 한가할 때 같은 API의 중앙값은 52~376ms가 아니라 15~60ms였다. 즉 **지연의 대부분이 처리 시간이 아니라 대기 시간**이다.
+
+중요한 점은 이 와중에도 **5xx·타임아웃이 0건**이라는 것이다. 용량을 넘겨도 실패가 아니라 줄서기로 저하됐다(graceful degradation).
+
+**RDS도 병목이 아니었다.** 같은 구간 RDS CPU는 최대 34%였다(20:53 4.4% → 20:55 21.2% → 20:56 30.7% → 20:57 34.4%).
+앱 CPU 26%, DB CPU 34%로 양쪽 다 여유인데 처리량이 162 req/s에서 멈췄다 = 커넥션 20개가 유일한 제약이었다는 뜻이다.
+
+**예측(재측정으로 검증할 가설)**: 태스크당 풀을 10 → 20으로 올리면 용량이 약 320 req/s가 된다.
+스파이크가 거는 부하는 1,000명 × 5초 주기 = 200 req/s이므로 용량이 부하를 넘어서며 대기열이 사라지고,
+p95가 한가할 때 수준(수십~수백 ms)으로 내려가야 한다. 대신 RDS CPU는 34% → 60~70%로 오른다.
+
+**폴링이 트래픽의 97%였다.** 전체 33,273건 중 결과 조회는 1,000건뿐이고 32,273건이 홈 폴링이었다(초당 161건).
+지연과 무관하게 이 자체가 낭비이며, SSE 전환의 근거가 된다(캐시 도입 여부는 풀 상향 재측정 뒤에 판단).
+
+**조치 순서**
+
+1. 커넥션 풀 상향(태스크당 10 → 20). RDS t4g.micro의 `max_connections`는 약 85라 2태스크 × 20 = 40은 안전하다.
+   단, RDS CPU가 이미 높았다면 커넥션을 늘려도 DB 앞의 줄이 DB 안의 줄로 옮겨갈 뿐이므로 먼저 확인한다.
+2. 재측정해서 p95가 얼마나 내려가고 다음 병목이 어디로 옮겨가는지 본다.
+3. 여전히 부족하면 `summary` 캐시(1~3초)와 결과 프리워밍. 폴링만으로 1,000명 × 5초 주기 = 200 req/s가 상시 발생하므로
+   캐시 효과가 크고, 이 수치가 SSE 전환의 근거이기도 하다.
+
+**측정 방법에서 배운 것**: 쓰기 시나리오는 4초 만에 끝나는데 지표 수집 간격이 5초라 표본이 1~2개뿐이다.
+짧은 버스트를 프로파일링할 때는 `INTERVAL=1`을 쓰거나, 분 단위로 도는 시나리오(read-mix·spike)에서 지표를 본다.
+`/actuator/metrics`도 ALB가 두 태스크에 번갈아 보내므로 표본이 어느 태스크 것인지 고정되지 않는다(위 표의 Tomcat busy가
+36과 6으로 튄 이유). 절대값보다 구간 최대값으로 읽는다.
 
 ## 배치 정합성 측정값 (2026-09-25, 로컬 H2 · 고정 시드)
 

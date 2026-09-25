@@ -24,6 +24,7 @@ locals {
     { name = "ALLOWED_ORIGINS", value = join(",", var.allowed_origins) },
     { name = "AUTH_COOKIE_DOMAIN", value = var.cookie_domain },
     { name = "SWAGGER_ENABLED", value = tostring(var.swagger_enabled) },
+    { name = "DB_POOL_SIZE", value = tostring(var.db_pool_size) },
     { name = "IMAGE_STORAGE", value = "s3" },
     { name = "IMAGE_BUCKET", value = aws_s3_bucket.images.bucket },
     { name = "IMAGE_CDN_URL", value = "https://${aws_cloudfront_distribution.images.domain_name}" },

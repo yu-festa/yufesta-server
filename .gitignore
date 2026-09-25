@@ -52,3 +52,6 @@ infra/terraform/terraform.tfvars
 infra/terraform/*.auto.tfvars
 infra/terraform/crash.log
 /uploads/
+
+# 부하 테스트 지표 수집 결과(로컬 측정 산출물). 요약은 load/README.md에 기록한다
+/session*.csv
