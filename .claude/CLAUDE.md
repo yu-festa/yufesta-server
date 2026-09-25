@@ -49,7 +49,7 @@ docker compose up -d mysql      # 앱은 IDE나 bootRun으로. compose의 app �
 ```
 
 - Swagger: http://localhost:8080/swagger-ui/index.html , 스펙 `/v3/api-docs/public`·`/v3/api-docs/admin`. 운영은 `SWAGGER_ENABLED`(Terraform `swagger_enabled`)로 연동 기간에만 켜고 축제 전 끈다. `OpenApiConfig`가 경로·메서드로 §7 규칙을 흉내 내 로그인 표시(cookieAuth)와 공통 오류를 붙이므로 인터페이스에는 도메인 고유 오류만 적는다
-- 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지)
+- 헬스: `/actuator/health` (ALB 헬스체크 대상, 상세 비노출 유지). `/actuator/metrics`는 OWNER만 볼 수 있고 부하 테스트 중 Hikari·Tomcat·JVM 지표를 읽는 용도다(`load/collect-metrics.sh`)
 - 로그인 시작: 브라우저에서 `GET /oauth2/authorization/{kakao|google}?redirect=/match/apply` (fetch가 아니라 페이지 이동)
 - 프로필: `application.yml`(공통) / `-dev`(로컬·compose) / `-prod`(ECS) / `-test`(H2). 시크릿은 전부 환경변수. yml에 실제 값 커밋 금지
 - 배포: `develop → main` PR 병합 시 GitHub Actions(`.github/workflows/deploy.yml`)가 OIDC로 ECR push + ECS 재배포. PR·develop 푸시는 `ci.yml`이 테스트만. 롤백·수동 배포는 `infra/README.md` 3절.
@@ -313,7 +313,7 @@ denyAll     : anyRequest
 - prod는 `server.forward-headers-strategy: framework`. ALB가 TLS를 끝내고 HTTP로 넘기므로 `X-Forwarded-Proto`로 redirect-uri와 리다이렉트 URL을 https로 만든다. dev에는 두지 않는다(프록시가 없어 헤더 위조가 가능).
 - CORS 허용 origin은 `app.auth.allowed-origins`(환경변수 `ALLOWED_ORIGINS`, 쉼표 구분). 비어 있으면 `frontend-url` 하나. `frontend-url`은 로그인 후 리다이렉트 기준이라 항상 하나다.
 - 작성 금지(`write_banned_at`)·매칭 차단(`matching_blocked_at`)은 토큰이 아니라 쓰기 시점에 DB로 확인한다(FR-AUTH-08).
-- 운영자 API 호출은 접근 로그에 userId가 남아야 한다(NFR-SC-05). `RequestLoggingFilter`가 MDC의 `userId`를 함께 찍도록 확장한다.
+- 접근 로그에는 요청마다 `[req=요청ID user=회원ID]`가 붙는다(`RequestLoggingFilter`가 MDC에 넣고 `logging.pattern.level`이 출력). 요청 ID는 클라이언트의 `X-Request-Id`를 이어받거나(형식 검사 후) 새로 만들고 응답 헤더로 돌려준다. 운영자 API 호출자 식별(NFR-SC-05)과 부하·장애 분석에 쓴다.
 
 ## 8. 도메인 불변 규칙 (SRS 요약 — 위반 금지)
 
@@ -426,6 +426,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 - 컨트롤러: `@WebMvcTest(controllers = X.class)` + `@MockitoBean` 서비스, `src/test/java/com/yufesta/support/ControllerTestSupport` 상속(실제 SecurityConfig·CorsConfig를 슬라이스에 넣고 보안 협력 빈은 mock). principal이 `Long`이라 `@WithMockUser`로는 `userId`가 null이 된다. `src/test/java/com/yufesta/support/WithMockLoginUser`(`id`·`role` 지정)를 쓴다.
 - 시간 의존 로직은 `Clock.fixed`. `Thread.sleep`으로 시간을 맞추지 않는다.
 - 매칭 엔진: 순수 단위 테스트. 최소 케이스 — 1:1 완전 매칭, 성비 2:1에서 전원 배정, N 상한 초과 시 미매칭 발생, 차단 쌍 제외, 이전 회차 쌍 제외, 동점 결정성, 한쪽 0명.
+- 배치 전체(풀→엔진→저장→발표→이월)는 `MatchRoundBatchInvariantTest`(`@SpringBootTest` + `@Transactional`, 고정 시드 1,000명)가 불변식으로 검증한다: 거울 행·동성 없음·차단 쌍 없음·파트너 상한·점수 재계산(엔진 메서드를 부르지 않고 따로 계산)·재실행 결정성·이월 규칙. 같은 불변식의 SQL 판은 `load/verify.sql`이며 리허설·부하 테스트 뒤 실제 MySQL에서 돌린다. 성비별 미매칭 수용량은 `MatchingEngineCapacityTest`(미매칭 = `max(0, 다수 − 소수 × N)`).
 - 새 기능에는 서비스 단위 테스트가 반드시 포함된다. 커버리지 수치는 강제하지 않는다.
 - 라이브러리 추가는 사람이 결정한다. 도입됨: `spring-boot-starter-flyway`+`flyway-mysql`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`. 합의된 후보: `spring-boot-starter-data-redis`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
 
@@ -438,7 +439,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
-14. `RequestLoggingFilter`에 MDC `userId`·`X-Request-Id` 없음
 
 ## 13. 개선 후보 (MVP 이후)
 

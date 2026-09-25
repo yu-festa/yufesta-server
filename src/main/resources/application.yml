@@ -33,11 +33,23 @@ app:
     local:
       dir: ${IMAGE_LOCAL_DIR:./uploads}
 
+# 로그 한 줄마다 [req=요청ID user=회원ID]. RequestLoggingFilter가 MDC에 넣는다(NFR-SC-05)
+logging:
+  pattern:
+    level: "%5p [req=%X{requestId:--} user=%X{userId:--}]"
+
+server:
+  tomcat:
+    mbeanregistry:
+      # tomcat.threads.busy 같은 스레드 풀 지표를 액추에이터가 읽으려면 필요하다(부하 테스트 병목 판독용)
+      enabled: true
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # metrics는 운영자(OWNER)만 볼 수 있다(SecurityConfig). 부하 테스트 중 Hikari·Tomcat·JVM 지표 수집에 쓴다
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never
