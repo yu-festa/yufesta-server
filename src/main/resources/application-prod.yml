@@ -8,6 +8,15 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      # 부하 테스트(2026-09-25)에서 기본값 10이 처리량 상한이었다. 발표 직후 1,000명 구간에서
+      # CPU 26%·힙 여유인데 커넥션 대기가 189개까지 쌓였다(load/README.md 참고).
+      # RDS db.t4g.micro의 max_connections는 약 85라 2태스크 × 20 = 40이면 여유가 있다
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      # 롤링 배포 중에는 구·신 태스크가 함께 떠 최대 4개가 된다. HikariCP는 minimum-idle 기본값이
+      # maximum-pool-size라 한가할 때도 태스크당 20개를 붙들어 4 × 20 = 80으로 max_connections(약 85)에 닿는다.
+      # 유휴 보유를 낮추면 부하가 있는 태스크만 20까지 늘린다
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
 
   jpa:
     hibernate:

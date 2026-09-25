@@ -126,3 +126,9 @@ variable "image_bucket_name" {
   type        = string
   default     = "yufesta-images"
 }
+
+variable "db_pool_size" {
+  description = "태스크당 Hikari 커넥션 풀 크기(DB_POOL_SIZE). RDS db.t4g.micro의 max_connections가 약 85이므로 태스크 수 × 이 값이 그보다 충분히 작아야 한다"
+  type        = number
+  default     = 20
+}
