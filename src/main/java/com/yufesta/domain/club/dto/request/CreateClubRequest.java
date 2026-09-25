@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
-/** 동아리 카드 등록 요청 */
+/** 동아리 카드 등록 요청. 대표 사진은 별도 업로드 API(POST /{clubId}/photo) */
 @Builder
 public record CreateClubRequest(
         @Schema(description = "동아리명", example = "HIPCOM") @NotBlank @Size(max = 50) String name,
@@ -17,7 +17,6 @@ public record CreateClubRequest(
         @Schema(description = "인스타그램 링크(https://instagram.com/ 또는 https://www.instagram.com/ 로 시작)", example = "https://www.instagram.com/hipcom_yu")
         @Size(max = 200) @Pattern(regexp = "^https://(www\\.)?instagram\\.com/.+$", message = "인스타그램 링크 형식이 아닙니다.")
         String instagramUrl,
-        @Schema(description = "대표 사진 URL(선택). 업로드 API가 생기기 전까지 직접 입력", example = "https://example.com/hipcom.jpg") @Size(max = 500) String photoUrl,
         @Schema(description = "표시 순서", example = "3") @NotNull Integer sortOrder
 ) {
 }

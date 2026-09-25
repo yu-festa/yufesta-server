@@ -1,6 +1,6 @@
 # ECS가 쓰는 역할 두 개.
 # - 태스크 실행 역할: ECS 에이전트가 이미지를 받고 로그를 쓰고 SSM 비밀을 읽어 컨테이너에 넣을 때 쓴다
-# - 태스크 역할: 컨테이너 안의 앱이 AWS API를 부를 때 쓴다. 지금은 권한이 없다(사진 S3 업로드는 팀원 도메인에서 추가)
+# - 태스크 역할: 컨테이너 안의 앱이 AWS API를 부를 때 쓴다. 권한은 이미지 버킷 쓰기뿐(storage.tf의 task_images)
 
 data "aws_iam_policy_document" "ecs_tasks_assume" {
   statement {

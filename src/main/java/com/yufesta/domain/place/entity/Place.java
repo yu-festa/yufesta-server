@@ -33,7 +33,7 @@ public class Place extends BaseTimeEntity {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private PlaceCategory category;
 
     @Column(name = "lat", nullable = false, precision = 10, scale = 7)

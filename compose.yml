@@ -32,6 +32,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
+      IMAGE_CDN_URL: ${IMAGE_CDN_URL:-http://localhost:8080/uploads}
     ports:
       - "${APP_PORT:-8080}:8080"
     depends_on:

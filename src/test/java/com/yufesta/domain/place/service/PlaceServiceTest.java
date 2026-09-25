@@ -84,6 +84,18 @@ class PlaceServiceTest {
     }
 
     @Test
+    void 배달존_카테고리로_노출_중인_장소를_조회한다() {
+        Place place = place(3L, "배달존", PlaceCategory.DELIVERY_ZONE, 3);
+        when(placeRepository.findAllByCategoryAndActiveTrueOrderBySortOrderAscNameAsc(PlaceCategory.DELIVERY_ZONE))
+                .thenReturn(List.of(place));
+
+        List<PlaceListResponse> result = placeService.getPlaces(PlaceCategory.DELIVERY_ZONE);
+
+        assertThat(result).extracting(PlaceListResponse::category).containsExactly(PlaceCategory.DELIVERY_ZONE);
+        verify(placeRepository).findAllByCategoryAndActiveTrueOrderBySortOrderAscNameAsc(PlaceCategory.DELIVERY_ZONE);
+    }
+
+    @Test
     void 장소_상세는_표시_순서대로_진행_이벤트를_반환한다() {
         Place place = place(1L, "중앙 무대", PlaceCategory.STAGE, 1);
         PlaceEvent firstEvent = PlaceEvent.builder()

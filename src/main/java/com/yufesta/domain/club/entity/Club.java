@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 라인업 동아리 카드(ERD 5, FR-LU-01). 공연 시간·무대는 타임테이블이 club으로 참조해 붙인다.
- * photoUrl은 S3 업로드 API가 생기기 전까지 운영자가 URL 문자열로 넣는다
+ * photoUrl은 업로드 API(ClubAdminService.uploadPhoto)만 바꾼다. 카드 정보 수정과 사진 교체는 별개 작업
  */
 @Getter
 @Entity
@@ -82,7 +82,6 @@ public class Club extends BaseTimeEntity {
             String genre,
             String signatureSong,
             String instagramUrl,
-            String photoUrl,
             int sortOrder
     ) {
         this.name = name;
@@ -90,7 +89,11 @@ public class Club extends BaseTimeEntity {
         this.genre = genre;
         this.signatureSong = signatureSong;
         this.instagramUrl = instagramUrl;
-        this.photoUrl = photoUrl;
         this.sortOrder = sortOrder;
+    }
+
+    /** 대표 사진 URL 교체. null이면 사진 없음 */
+    public void changePhoto(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }

@@ -1,5 +1,5 @@
 -- ============================================================
--- YU FESTA ERD v1.3 (SRS v1.6 기준) — MySQL 8.x
+-- YU FESTA ERD v1.4 (SRS v1.7 기준) — MySQL 8.x
 -- ERDCloud: 가져오기 > SQL > MySQL 로 import. 컬럼 COMMENT = 논리명(한글)
 -- 규칙: PK는 BIGINT UNSIGNED AUTO_INCREMENT, 열거형은 VARCHAR + 허용값 주석(값은 대문자 enum 이름),
 --       불리언은 TINYINT(1), 시각은 DATETIME(KST), 모든 테이블에 created_at·updated_at, 문자셋 utf8mb4
@@ -8,6 +8,7 @@
 --       2회차 이월 신청 자동 생성(entry_type/source_application_id), 회차 초기값(16:00/20:00),
 --       users.blocked_at → matching_blocked_at, gender VARCHAR(1), 감사 시각 컬럼 통일
 -- v1.3: timetable_slots.slot_type에 EVENT 추가(개회식·연설·가요제), 타임테이블 초기 데이터(무대 1·공연 13, V3)
+-- v1.4: places.category를 STAGE/TOILET/DELIVERY_ZONE으로 정리하고 DELIVERY_ZONE 길이에 맞춰 VARCHAR(20)으로 확장(V5)
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -37,7 +38,7 @@ CREATE TABLE `users` (
 CREATE TABLE `places` (
   `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '장소 ID',
   `name`        VARCHAR(50)     NOT NULL COMMENT '장소명',
-  `category`    VARCHAR(10)     NOT NULL COMMENT '카테고리(STAGE/BOOTH/TOILET/AMENITY/INFO)',
+  `category`    VARCHAR(20)     NOT NULL COMMENT '카테고리(STAGE/TOILET/DELIVERY_ZONE)',
   `lat`         DECIMAL(10,7)   NOT NULL COMMENT '위도',
   `lng`         DECIMAL(10,7)   NOT NULL COMMENT '경도',
   `description` VARCHAR(200)    NULL     COMMENT '설명',

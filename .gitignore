@@ -51,3 +51,4 @@ infra/terraform/*.tfplan
 infra/terraform/terraform.tfvars
 infra/terraform/*.auto.tfvars
 infra/terraform/crash.log
+/uploads/
