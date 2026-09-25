@@ -138,6 +138,25 @@ class SecurityConfigTest {
     }
 
     @Test
+    void 지표_엔드포인트는_비로그인이면_401이다() throws Exception {
+        // 헬스만 열려 있고 나머지 actuator는 OWNER 전용. 슬라이스에는 actuator 핸들러가 없어 인가를 통과하면 404가 된다
+        mockMvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockLoginUser(role = UserRole.STAFF)
+    void STAFF는_지표_엔드포인트에_403이다() throws Exception {
+        mockMvc.perform(get("/actuator/metrics")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockLoginUser(role = UserRole.OWNER)
+    void OWNER는_지표_엔드포인트의_인가를_통과한다() throws Exception {
+        mockMvc.perform(get("/actuator/metrics"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotIn(401, 403));
+    }
+
+    @Test
     @WithMockLoginUser
     void 규칙에_없는_경로는_로그인해도_거부된다() throws Exception {
         mockMvc.perform(get("/nowhere"))

@@ -116,6 +116,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        // 지표는 운영자만. 부하 테스트 중 Hikari·Tomcat·JVM 수치를 읽는 경로다(load/collect-metrics.sh)
+                        .requestMatchers("/actuator/**").hasRole(OWNER)
                         // 로컬 이미지 저장소(app.storage.type=local)가 서빙하는 경로. 운영은 CloudFront라 이 경로에 핸들러가 없다
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
