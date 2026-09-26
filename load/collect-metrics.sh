@@ -24,6 +24,15 @@ except Exception:
 "
 }
 
+# 시작 전에 한 번 확인한다. 토큰이 만료(2시간)됐는데 그냥 돌면 빈 값(,,,,)만 쌓여 측정을 통째로 날린다
+PREFLIGHT="$(curl -s -o /dev/null -w '%{http_code}' -b "access_token=${ACCESS_TOKEN}" "${BASE_URL}/actuator/metrics/jvm.memory.used")"
+if [ "$PREFLIGHT" != "200" ]; then
+  echo "지표 조회 실패 (HTTP ${PREFLIGHT}). 401이면 토큰 만료, 403이면 OWNER 계정이 아니다." >&2
+  echo "  export JWT_SECRET=\$(aws ssm get-parameter --name /yufesta/prod/JWT_SECRET --with-decryption --query 'Parameter.Value' --output text)" >&2
+  echo "  export ACCESS_TOKEN=\$(./load/token.sh <회원 ID>)" >&2
+  exit 1
+fi
+
 echo "time,heap_used_mb,cpu,hikari_active,hikari_pending,hikari_idle,tomcat_busy,tomcat_current,http_count,http_max_sec" > "$OUT"
 echo "수집 시작 → $OUT (Ctrl+C로 종료)"
 
