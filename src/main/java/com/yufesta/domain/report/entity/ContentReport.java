@@ -41,7 +41,7 @@ public class ContentReport extends BaseTimeEntity {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ContentTargetType targetType;
 
     @Column(nullable = false)

@@ -11,7 +11,7 @@ import lombok.Builder;
 /** 콘텐츠 신고 등록 요청 */
 @Builder
 public record CreateContentReportRequest(
-        @Schema(description = "신고 대상 유형", example = "CHEER") @NotNull ContentTargetType targetType,
+        @Schema(description = "신고 대상 유형(CHEER / LOST_ITEM / LOST_ITEM_COMMENT)", example = "CHEER") @NotNull ContentTargetType targetType,
         @Schema(description = "신고 대상 ID", example = "1") @NotNull @Positive Long targetId,
         @Schema(description = "신고 사유", example = "부적절한 내용") @NotBlank @Size(max = 20) String reason
 ) {
