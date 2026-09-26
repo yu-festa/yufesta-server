@@ -34,10 +34,6 @@ public enum ErrorCode {
     APP_SETTING_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_NOT_FOUND", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
     APP_SETTING_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "APP_SETTING_INVALID", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
 
-    // 서비스 오픈 알림
-    OPEN_NOTIFICATION_CLOSED(HttpStatus.CONFLICT, "OPEN_NOTIFICATION_CLOSED", "서비스 오픈 알림 신청 기간이 지났어요."),
-    OPEN_NOTIFICATION_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "OPEN_NOTIFICATION_NOT_CONFIGURED", "알림 서비스를 준비 중이에요. 잠시 후 다시 시도해 주세요."),
-
     // 지도
     PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다."),
     PLACE_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_EVENT_NOT_FOUND", "장소 이벤트를 찾을 수 없습니다."),

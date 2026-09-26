@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v2.0 (초안) |
+| 문서 버전 | v1.9 (초안) |
 | 작성일 | 2026. 9. 26. |
 | 프로젝트 | 2026 가을 대동제 축제 통합 모바일 웹 「YU FESTA」 |
 | 작성 | YU FESTA 팀 |
@@ -32,10 +32,9 @@
 | 공지 | 운영자 공지 | 읽기 불필요 |
 | 분실물 | 습득·분실 게시와 댓글·답글. 자동 생성 닉네임으로 표시. 콘텐츠 필터 적용 | 읽기 불필요 / 게시·댓글 작성 필요 |
 | 응원 메시지 | 메시지 티커. 자동 생성 닉네임으로 표시. 콘텐츠 필터 적용 | 읽기·작성 모두 불필요 (신고는 필요) |
-| 서비스 오픈 알림 | 랜딩 페이지에서 Web Push 구독 후 서비스 오픈 시각에 `/main` 진입 알림 | 불필요 |
 | 운영자 화면 | 회차 발표, 콘텐츠·신고 관리 | 운영자 |
 
-**범위 제외**: 사용자 축제 사진 업로드(UGC) — 1차 회의에서 제거 결정, 운영진 게시형 축제 사진(3.10)으로 대체. 단, 분실물 확인 목적의 게시글 이미지 1장은 FR-LF-10의 제한적 예외다. 동성 매칭 옵션 — 보류(8장). 게스트 계정 모델 — 철회(8장). 화장실 비치 용품 정보 — 제외(8장). 채팅, 결제, 네이티브 앱, 학교 인증, 외부 인증 서비스(Firebase 등). 서비스 오픈 알림은 네이티브 앱이 아닌 브라우저 Web Push이며 iOS는 홈 화면에 추가한 웹 앱에서만 지원한다.
+**범위 제외**: 사용자 축제 사진 업로드(UGC) — 1차 회의에서 제거 결정, 운영진 게시형 축제 사진(3.10)으로 대체. 단, 분실물 확인 목적의 게시글 이미지 1장은 FR-LF-10의 제한적 예외다. 동성 매칭 옵션 — 보류(8장). 게스트 계정 모델 — 철회(8장). 화장실 비치 용품 정보 — 제외(8장). 채팅, 결제, 네이티브 앱, 학교 인증, 외부 인증 서비스(Firebase 등).
 
 ### 1.3 용어
 | 용어 | 정의 |
@@ -73,7 +72,7 @@
 ### 2.3 운영 환경
 - 클라이언트: 모바일 브라우저(iOS Safari 16+, Android Chrome 최신 2버전, 카카오톡 인앱 브라우저), 데스크톱은 중앙 정렬 보조 지원
 - 서버: AWS (상세 7장)
-- 운영 기간: 축제 전후 약 1주. 축제 당일 2026-10-02
+- 운영 기간: 축제 전후 약 1주. 축제 당일 2026-10-08
 
 ### 2.4 설계·구현 제약
 - **읽기 기능은 로그인 없이**, 쓰기 기능(인스타팅 신청·결과, 분실물 게시·댓글, 신고)은 소셜 로그인(카카오·구글) 후 이용. 로그인은 쓰기 시도 시점에만 요구한다. 응원 메시지 작성은 로그인 없이 익명 키·콘텐츠 필터·속도 제한으로 관리한다
@@ -288,17 +287,6 @@
 | FR-CF-05 | 외부 API에는 본문 텍스트만 전송한다. uid·익명 키·IP·닉네임을 함께 보내지 않는다 | M |
 | FR-CF-06 | 첫 스프린트에 한국어 욕설·비하·연락처 샘플 50건으로 ①②③의 차단률과 오탐을 측정하고 임계값을 정한다 | S |
 
-### 3.12 서비스 오픈 알림 Web Push (FR-ON)
-
-| ID | 요구사항 | 우선 |
-|---|---|---|
-| FR-ON-01 | 랜딩 페이지에서 로그인 없이 VAPID 공개키를 조회하고 브라우저 PushSubscription(`endpoint`, `keys.p256dh`, `keys.auth`)을 등록·취소할 수 있다. 등록·취소는 CSRF 토큰을 포함한다 | M |
-| FR-ON-02 | 같은 `endpoint` 재신청은 새 행을 만들지 않고 기존 구독을 갱신한다. 오픈 시각 뒤 신규·재신청은 저장·발송하지 않고 `OPEN_NOTIFICATION_CLOSED`로 거절한다 | M |
-| FR-ON-03 | 서버는 KST `2026-10-02T00:00:00+09:00` 이후 유효 구독에 `{type:FESTIVAL_OPEN,title:YU FESTA가 오픈했어요!,body:공연 시간표부터 축제 지도까지, 지금 확인해보세요.,url:/main}`을 1회 전송한다 | M |
-| FR-ON-04 | 다중 ECS 태스크에서도 DB lease로 같은 endpoint를 중복 발송하지 않는다. 성공은 `SENT`, 404·410은 `EXPIRED`, 일시 실패는 제한된 exponential backoff 재시도로 처리한다 | M |
-| FR-ON-05 | VAPID private key는 서버 Secret Manager·환경변수에만 둔다. 브라우저에는 public key만 제공하며 endpoint·암호화 키 원문을 일반 로그에 남기지 않는다 | M |
-| FR-ON-06 | 프론트 service worker는 payload를 표시하고 알림 클릭 시 `/main`을 연다. Android는 일반 지원 브라우저에서, iOS는 홈 화면에 추가한 웹 앱에서만 신청 UI를 제공한다 | M |
-
 ---
 
 ## 4. 외부 인터페이스 요구사항
@@ -318,7 +306,6 @@
 | 카카오맵 JavaScript SDK | 지도 렌더·핀 | 도메인 등록, 무료 쿼터 내 운영, 실패 시 폴백 |
 | 브라우저 Geolocation API | 내 위치, 화장실 거리 | HTTPS 필수, 사용자 권한 |
 | OpenAI Moderation API | 응원 메시지·분실물·분실물 댓글 텍스트 필터(3.11) | 무료 엔드포인트(요금 정책 변경 시 재확인), 서버에서 호출, API 키는 Secrets Manager, 타임아웃 2초, 실패 시 fail-open |
-| Web Push / VAPID | 로그인 없는 서비스 오픈 알림 예약 발송(3.12) | HTTPS·service worker 필요. 공개키는 브라우저, 개인키는 서버 Secret Manager에만 제공 |
 | 캘린더(.ics 파일) | 공연 알림 대안 (보류) | 서버 생성 파일 다운로드 |
 
 ### 4.3 통신 인터페이스
@@ -401,7 +388,6 @@
 | LostItemImage | id, lostItemId, imageUrl, thumbnailUrl, createdAt | 분실물 게시글당 0~1장. 원본은 보관하지 않고 1600px·400px JPEG URL만 저장 |
 | LostItemCommentAlias | id, lostItemId, userId, displayName, createdAt | 같은 분실물 글에서만 재사용하는 댓글 자동 생성 닉네임. `(lostItemId, userId)`·`(lostItemId, displayName)` 유니크 |
 | LostItemComment | id, lostItemId, parentCommentId?, authorUserId?, content, displayName, moderationStatus(passed/skipped), reportCount, hidden, deleted, createdAt | 최상위 댓글과 1단계 답글. 삭제된 댓글은 안내 문구만 공개 |
-| OpenNotificationSubscription | id, endpoint, p256dhKey, authKey, status(active/sending/sent/cancelled/expired), attemptCount, nextAttemptAt?, deliveryLeaseUntil?, deliveredAt?, cancelledAt?, lastError? | 로그인 없는 서비스 오픈 Web Push 구독. endpoint 유니크, 다른 엔티티와 FK 없음 |
 | Cheer | id, text, displayName, writerKeyHash?, moderationStatus(passed/skipped), reportCount, hidden, createdAt | 응원 메시지. 비로그인 작성. authorUserId 없음, 익명 키 해시만 보관 |
 | ContentReport | id, targetType(cheer/lostItem/lostItemComment), targetId, reporterUserId, reason, createdAt, reviewedAt? | 콘텐츠 신고. (targetType, targetId, reporterUserId) 유니크 |
 | AdminUser | (별도 엔티티 없음) User.role(user/staff/owner)로 통합 | 운영자도 소셜 로그인 + 화이트리스트(AppSetting)로 인증. ID/PW 방식 확정 시 분리(ERD v1.0 참고) |
@@ -422,7 +408,6 @@
 ### 6.3 익명 표시 규칙
 - Cheer·LostItem·LostItemComment의 공개 조회 응답에는 `displayName`(자동 생성 닉네임)과 요청자가 작성자인지 여부(`mine`)만 포함하고, `authorUserId`·익명 키는 포함하지 않는다. `mine`은 LostItem·댓글은 uid, Cheer는 익명 키 일치로 계산한다
 - `displayName`은 저장 시 1회 생성해 게시물에 고정하며, uid·시각 등에서 유도하지 않는다. 단, 댓글은 같은 분실물 글의 `(lostItemId, userId)`별 별칭을 재사용한다
-- OpenNotificationSubscription은 회원·익명 키와 연결하지 않으며, endpoint 자체를 수신 권한으로 취급해 공개 응답·일반 로그에 원문을 내보내지 않는다
 - 운영자 API에서만 작성자 uid와 신고 이력을 조회한다
 
 ### 6.4 파기 정책 반영
@@ -558,4 +543,3 @@ score(a, b) =
 | v1.7 | 2026-09-24 | 지도 장소 카테고리를 **공연장·화장실·배달존**으로 개편하고 기존 부스·편의·안내 카테고리 제거 |
 | v1.8 | 2026-09-25 | 분실물 게시별 댓글·1단계 답글, 글 단위 자동 생성 별칭, 소프트 삭제·운영자 숨김·댓글 신고를 추가 |
 | v1.9 | 2026-09-26 | 분실물 게시글당 jpeg·png 이미지 1장 첨부·삭제와 1600px·400px 서버 리사이즈본을 추가 |
-| v2.0 | 2026-09-26 | 로그인 없는 서비스 오픈 Web Push 구독·취소, VAPID 공개키, KST 예약 발송·중복 lease·만료 및 재시도 정책을 추가 |

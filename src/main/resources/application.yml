@@ -22,18 +22,6 @@ app:
     # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
     enabled: ${SCHEDULER_ENABLED:true}
     round-tick: PT10S
-    # 서비스 오픈 Web Push 발송 점검 주기. 실제 발송 시각·재시도 정책은 open-notification 아래에서 관리한다.
-    open-notification-tick: PT30S
-  open-notification:
-    # VAPID 개인키는 ECS/로컬 환경변수로만 주입한다. 빈 값이면 API는 503, scheduler는 상태를 바꾸지 않고 건너뛴다.
-    vapid-public-key: ${VAPID_PUBLIC_KEY:}
-    vapid-private-key: ${VAPID_PRIVATE_KEY:}
-    vapid-subject: ${VAPID_SUBJECT:}
-    open-at: ${OPEN_NOTIFICATION_OPEN_AT:2026-10-02T00:00:00+09:00}
-    max-attempts: ${OPEN_NOTIFICATION_MAX_ATTEMPTS:3}
-    retry-base-delay: ${OPEN_NOTIFICATION_RETRY_BASE_DELAY:PT1M}
-    delivery-lease: ${OPEN_NOTIFICATION_DELIVERY_LEASE:PT2M}
-    batch-size: ${OPEN_NOTIFICATION_BATCH_SIZE:20}
   storage:
     # 이미지 저장소. local(기본, ./uploads에 저장하고 /uploads/**로 서빙) | s3(운영, 태스크 역할 자격 증명)
     type: ${IMAGE_STORAGE:local}
