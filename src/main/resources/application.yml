@@ -29,7 +29,7 @@ app:
     vapid-public-key: ${VAPID_PUBLIC_KEY:}
     vapid-private-key: ${VAPID_PRIVATE_KEY:}
     vapid-subject: ${VAPID_SUBJECT:}
-    open-at: ${OPEN_NOTIFICATION_OPEN_AT:2026-10-02T08:00:00+09:00}
+    open-at: ${OPEN_NOTIFICATION_OPEN_AT:2026-10-02T00:00:00+09:00}
     max-attempts: ${OPEN_NOTIFICATION_MAX_ATTEMPTS:3}
     retry-base-delay: ${OPEN_NOTIFICATION_RETRY_BASE_DELAY:PT1M}
     delivery-lease: ${OPEN_NOTIFICATION_DELIVERY_LEASE:PT2M}

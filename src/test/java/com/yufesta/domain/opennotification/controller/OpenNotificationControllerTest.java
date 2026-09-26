@@ -87,7 +87,7 @@ class OpenNotificationControllerTest extends ControllerTestSupport {
         return OpenNotificationSubscriptionResponse.builder()
                 .subscribed(true)
                 .duplicate(duplicate)
-                .scheduledFor(OffsetDateTime.parse("2026-10-02T08:00:00+09:00"))
+                .scheduledFor(OffsetDateTime.parse("2026-10-02T00:00:00+09:00"))
                 .build();
     }
 }

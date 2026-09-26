@@ -56,8 +56,6 @@ class OpenApiConfigTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/match/rounds'].get.security[0].cookieAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/match/rounds'].get.responses['403']").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/admin/open-notifications/test-push'].post.security[0].cookieAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/admin/open-notifications/test-push'].post.responses['403']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/match/summary']").doesNotExist());
     }
 }

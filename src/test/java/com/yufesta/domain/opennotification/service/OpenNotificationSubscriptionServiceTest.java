@@ -28,7 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OpenNotificationSubscriptionServiceTest {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final OffsetDateTime OPEN_AT = OffsetDateTime.parse("2026-10-02T08:00:00+09:00");
+    private static final OffsetDateTime OPEN_AT = OffsetDateTime.parse("2026-10-02T00:00:00+09:00");
 
     @Mock
     private OpenNotificationSubscriptionRepository subscriptionRepository;
@@ -75,7 +75,7 @@ class OpenNotificationSubscriptionServiceTest {
         OpenNotificationSubscriptionService closedService = new OpenNotificationSubscriptionService(
                 subscriptionRepository,
                 properties(),
-                clockAt("2026-10-02T08:00:00+09:00")
+                clockAt("2026-10-02T00:00:00+09:00")
         );
 
         assertThatThrownBy(() -> closedService.subscribe(request()))

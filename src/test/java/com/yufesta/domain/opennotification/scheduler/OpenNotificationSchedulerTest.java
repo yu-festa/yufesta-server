@@ -74,6 +74,6 @@ class OpenNotificationSchedulerTest {
     }
 
     private static OffsetDateTime openAt() {
-        return OffsetDateTime.parse("2026-10-02T08:00:00+09:00");
+        return OffsetDateTime.parse("2026-10-02T00:00:00+09:00");
     }
 }
