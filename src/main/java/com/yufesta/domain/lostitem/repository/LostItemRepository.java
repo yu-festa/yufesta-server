@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 /** 분실물 게시글 공개 조회와 저장을 담당 */
 public interface LostItemRepository extends JpaRepository<LostItem, Long> {
 
+    @EntityGraph(attributePaths = "image")
     List<LostItem> findAllByHiddenFalseOrderByCreatedAtDesc(Pageable pageable);
 
     /** 같은 게시글의 신고 처리 순서를 보장하기 위해 행을 잠근다. */

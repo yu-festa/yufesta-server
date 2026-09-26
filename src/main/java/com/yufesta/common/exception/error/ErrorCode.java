@@ -52,6 +52,8 @@ public enum ErrorCode {
 
     // 분실물
     LOST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_NOT_FOUND", "분실물 게시글을 찾을 수 없습니다."),
+    LOST_ITEM_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_IMAGE_NOT_FOUND", "분실물 이미지를 찾을 수 없습니다."),
+    LOST_ITEM_IMAGE_ALREADY_EXISTS(HttpStatus.CONFLICT, "LOST_ITEM_IMAGE_ALREADY_EXISTS", "분실물 게시글에는 이미지 한 장만 등록할 수 있습니다."),
     LOST_ITEM_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_COMMENT_NOT_FOUND", "분실물 댓글을 찾을 수 없습니다."),
     LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED", "답글에는 다시 답글을 작성할 수 없습니다."),
 

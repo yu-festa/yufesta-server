@@ -12,10 +12,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
+import com.yufesta.domain.lostitem.dto.response.LostItemImageResponse;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.enums.LostItemKind;
 import com.yufesta.domain.lostitem.enums.LostItemStatus;
 import com.yufesta.domain.lostitem.service.LostItemService;
+import com.yufesta.domain.lostitem.service.LostItemImageService;
 import com.yufesta.support.ControllerTestSupport;
 import com.yufesta.support.WithMockLoginUser;
 import java.time.LocalDateTime;
@@ -31,6 +33,9 @@ class LostItemControllerTest extends ControllerTestSupport {
     @MockitoBean
     private LostItemService lostItemService;
 
+    @MockitoBean
+    private LostItemImageService lostItemImageService;
+
     @Test
     void 비로그인_사용자가_분실물_목록을_조회한다() throws Exception {
         when(lostItemService.getLostItems(20)).thenReturn(List.of(response()));
@@ -38,7 +43,8 @@ class LostItemControllerTest extends ControllerTestSupport {
         mockMvc.perform(get("/api/v1/lost-items"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].kind").value("FOUND"))
-                .andExpect(jsonPath("$.data[0].displayName").value("씩씩한 판다"));
+                .andExpect(jsonPath("$.data[0].displayName").value("씩씩한 판다"))
+                .andExpect(jsonPath("$.data[0].image.thumbnailUrl").value("https://cdn.test/lost-items/1/wallet-thumb.jpg"));
     }
 
     @Test
@@ -112,6 +118,7 @@ class LostItemControllerTest extends ControllerTestSupport {
                 .occurredAt(LocalDateTime.of(2026, 10, 2, 14, 0))
                 .status(LostItemStatus.OPEN)
                 .displayName("씩씩한 판다")
+                .image(new LostItemImageResponse(3L, "https://cdn.test/lost-items/1/wallet-1600.jpg", "https://cdn.test/lost-items/1/wallet-thumb.jpg"))
                 .createdAt(LocalDateTime.of(2026, 10, 2, 14, 5))
                 .build();
     }
