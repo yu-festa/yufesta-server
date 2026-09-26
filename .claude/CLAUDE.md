@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v2.0), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.7)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v2.1), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.7)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
