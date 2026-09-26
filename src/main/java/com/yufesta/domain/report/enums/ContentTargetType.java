@@ -4,5 +4,6 @@ package com.yufesta.domain.report.enums;
 public enum ContentTargetType {
 
     CHEER,
-    LOST_ITEM
+    LOST_ITEM,
+    LOST_ITEM_COMMENT
 }
