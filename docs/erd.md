@@ -1,6 +1,15 @@
-# YU FESTA ERD 설명서 v1.4
+# YU FESTA ERD 설명서 v1.6
 
-기준: SRS v1.7 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+기준: SRS v1.9 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+
+v1.6 변경 요약 (2026-09-26, 분실물 이미지)
+- **게시글당 1장**: `lost_item_images`가 분실물 게시글의 본문용 1600px JPEG URL과 400px 썸네일 URL을 0~1개로 보관한다. `lost_item_id` 유니크 제약으로 여러 장 저장을 막는다
+- **저장 수명주기**: 이미지 행은 게시글과 함께 CASCADE 삭제되며, 원본 파일은 저장하지 않는다
+
+v1.5 변경 요약 (2026-09-25, 분실물 댓글·답글)
+- **댓글 구조**: `lost_item_comments`에 최상위 댓글과 1단계 답글을 함께 저장한다. 답글의 답글은 허용하지 않는다
+- **글 단위 익명성**: `lost_item_comment_aliases`가 `(lost_item_id, user_id)`별 자동 생성 닉네임을 보존해 같은 글 안에서는 대화를 이어가고, 다른 글에서는 연결되지 않게 한다
+- **안전한 운영**: 댓글 작성자 삭제는 `is_deleted` 소프트 삭제, 운영자 숨김은 `is_hidden`으로 구분한다. 댓글도 콘텐츠 신고 대상(`LOST_ITEM_COMMENT`)이다
 
 v1.4 변경 요약 (2026-09-24, 지도 장소 카테고리 개편)
 - **장소 카테고리 통일**: `places.category`를 `STAGE`(공연장) / `TOILET`(화장실) / `DELIVERY_ZONE`(배달존) 세 값으로 정리
@@ -23,7 +32,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 
 1. ERDCloud에서 새 ERD 생성 → 상단 **가져오기 > SQL** → DB 종류 **MySQL** → `erd.sql` 내용 붙여넣기
 2. 컬럼 `COMMENT`가 **논리명(한글)** 으로 들어가고, `FOREIGN KEY`가 관계선으로 그려집니다
-3. 가져온 뒤 확인할 것: 관계선 21개(아래 관계 표), `users`·`applications`·`matches`가 중앙에 오도록 배치. `cheers`는 어느 테이블과도 선이 없는 것이 정상
+3. 가져온 뒤 확인할 것: 관계선 27개(아래 관계 표), `users`·`applications`·`matches`가 중앙에 오도록 배치. `cheers`는 어느 테이블과도 선이 없는 것이 정상
 
 ## 설계 규칙
 
@@ -37,10 +46,10 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | 소프트 삭제 | 게시물은 `is_hidden`, 신청은 `canceled_at`으로 표시. 물리 삭제는 파기 배치와 신고 누적 제재(신청 삭제)에서만 |
 | 외래키 삭제 정책 | 개인정보 파기 시 `users` 행을 지우면 신청·매칭·신고는 **CASCADE**, 게시물 작성자는 **SET NULL**(글은 남고 작성자만 끊김) |
 | 익명 작성 | 응원 메시지는 회원과 연결하지 않는다. 브라우저 쿠키의 익명 키를 SHA-256 해시해 `writer_key_hash`에 저장하고 속도 제한·운영자 일괄 숨김에만 쓴다 |
-| 파기 대상 | `users`(**`role = 'USER'`만**), `applications`, `application_tags`, `matches`, `blocks`, `content_reports.reporter_user_id`, `lost_items.author_user_id`, `cheers.writer_key_hash`(NULL 처리) |
+| 파기 대상 | `users`(**`role = 'USER'`만**), `applications`, `application_tags`, `matches`, `blocks`, `content_reports.reporter_user_id`, `lost_items.author_user_id`, `lost_item_comments.author_user_id`, `lost_item_comment_aliases`, `cheers.writer_key_hash`(NULL 처리) |
 | 보존 대상 | `users`(운영자 행), `places`, `place_events`, `clubs`, `timetable_slots`, `notices`, `festival_photos`, `app_settings`, `match_rounds` |
 
-## 테이블 관계 (외래키 21개)
+## 테이블 관계 (외래키 27개)
 
 | 부모 | 자식 | 카디널리티 | 삭제 정책 |
 |---|---|---|---|
@@ -48,7 +57,13 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | users | blocks (reporter) | 1 : N | CASCADE |
 | users | blocks (target) | 1 : N | CASCADE |
 | users | lost_items | 1 : N | SET NULL |
+| users | lost_item_comments | 1 : N | SET NULL |
+| users | lost_item_comment_aliases | 1 : N | CASCADE |
 | users | content_reports | 1 : N | SET NULL |
+| lost_items | lost_item_images | 1 : 0..1 | CASCADE |
+| lost_items | lost_item_comments | 1 : N | CASCADE |
+| lost_items | lost_item_comment_aliases | 1 : N | CASCADE |
+| lost_item_comments | lost_item_comments (parent) | 1 : N (답글) | SET NULL |
 | match_rounds | applications | 1 : N | RESTRICT |
 | match_rounds | matches | 1 : N | RESTRICT |
 | match_rounds | blocks | 1 : N | SET NULL |
@@ -266,7 +281,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 
 ## 13. lost_items — 분실물 게시
 
-사용자 작성(로그인 필수, 익명 표시)과 운영자 등록(종합 안내소)이 한 테이블에 있다. 작성자는 모두 `author_user_id`이고, 운영자 등록 글은 `is_official = 1`로 구분한다.
+사용자 작성(로그인 필수, 익명 표시)과 운영자 등록(종합 안내소)이 한 테이블에 있다. 작성자는 모두 `author_user_id`이고, 운영자 등록 글은 `is_official = 1`로 구분한다. 사용자 작성 글은 `lost_item_images`에 이미지 0~1장을 연결할 수 있다.
 
 | 컬럼 | 한글명 | 타입 | NULL | 역할 |
 |---|---|---|---|---|
@@ -284,21 +299,63 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | is_hidden | 숨김 여부 | TINYINT(1) | N | |
 | created_at / updated_at | 작성·수정 시각 | DATETIME | N | |
 
-## 14. content_reports — 콘텐츠 신고
+## 14. lost_item_images — 분실물 게시글 이미지 한 장
 
-응원 메시지·분실물 신고(로그인 필요). 대상 테이블이 둘이라 다형 참조(`target_type` + `target_id`)로 두고, FK 대신 앱에서 존재를 검증한다.
+분실물 확인에 필요한 사진만 게시글당 한 장 저장한다. 서버가 원본을 보관하지 않고 긴 변 1600px JPEG와 400px 썸네일 JPEG의 공개 URL을 저장한다.
+
+| 컬럼 | 한글명 | 타입 | NULL | 역할 |
+|---|---|---|---|---|
+| id | 분실물 이미지 ID | BIGINT UNSIGNED | N | PK |
+| lost_item_id | 분실물 게시글 ID | BIGINT UNSIGNED | N | FK → lost_items. 유니크, 게시글 삭제 시 CASCADE |
+| image_url | 본문용 이미지 URL | VARCHAR(500) | N | 긴 변 1600px JPEG 공개 URL |
+| thumbnail_url | 썸네일 URL | VARCHAR(500) | N | 긴 변 400px JPEG 공개 URL |
+| created_at / updated_at | 생성·수정 시각 | DATETIME | N | |
+
+## 15. lost_item_comment_aliases — 분실물 댓글 글 단위 익명 별칭
+
+같은 회원이 같은 분실물 글에서 쓰는 모든 댓글·답글은 하나의 자동 생성 닉네임을 쓴다. 다른 분실물 글에서는 별칭을 새로 생성해 글 사이의 작성자 연결을 막는다.
+
+| 컬럼 | 한글명 | 타입 | NULL | 역할 |
+|---|---|---|---|---|
+| id | 별칭 ID | BIGINT UNSIGNED | N | PK |
+| lost_item_id | 분실물 게시글 ID | BIGINT UNSIGNED | N | FK → lost_items. `(lost_item_id, user_id)` 유니크 |
+| user_id | 회원 ID | BIGINT UNSIGNED | N | FK → users |
+| display_name | 자동 생성 닉네임 | VARCHAR(20) | N | 같은 글 안에서 유니크. 공개 API에는 이 값만 노출 |
+| created_at / updated_at | 생성·수정 시각 | DATETIME | N | |
+
+## 16. lost_item_comments — 분실물 댓글·답글
+
+댓글은 분실물 글의 공개 대화 보조 기능이다. 최상위 댓글에는 답글을 여러 개 달 수 있지만, 답글에는 다시 답글을 달 수 없다. 게시글이 `RESOLVED`여도 인계·확인 대화를 위해 댓글을 남길 수 있다.
+
+| 컬럼 | 한글명 | 타입 | NULL | 역할 |
+|---|---|---|---|---|
+| id | 댓글 ID | BIGINT UNSIGNED | N | PK |
+| lost_item_id | 분실물 게시글 ID | BIGINT UNSIGNED | N | FK → lost_items. 게시글 삭제 시 CASCADE |
+| parent_comment_id | 부모 댓글 ID | BIGINT UNSIGNED | Y | NULL = 최상위 댓글, 값 있음 = 최상위 댓글의 답글. 부모 물리 삭제 시 SET NULL |
+| author_user_id | 작성자 회원 ID | BIGINT UNSIGNED | Y | FK → users. 회원 파기 시 NULL |
+| content | 댓글 내용 | VARCHAR(200) | N | 콘텐츠 필터 대상. 작성자 삭제 후에는 공개하지 않음 |
+| display_name | 글 단위 자동 생성 닉네임 | VARCHAR(20) | N | 별칭 테이블에서 만든 값. 사용자 ID는 공개하지 않음 |
+| moderation_status | 필터 상태 | VARCHAR(10) | N | `PASSED` / `SKIPPED` |
+| report_count | 신고 누적 수 | INT UNSIGNED | N | 콘텐츠 신고와 같은 트랜잭션에서 증가 |
+| is_hidden | 운영자 숨김 여부 | TINYINT(1) | N | 숨긴 댓글과 그 답글은 공개 조회에서 제외 |
+| is_deleted | 작성자 삭제 여부 | TINYINT(1) | N | 소프트 삭제. 본문 대신 “삭제된 댓글입니다.”를 노출 |
+| created_at / updated_at | 작성·수정 시각 | DATETIME | N | 최상위 댓글·답글 모두 작성 시각 오름차순 |
+
+## 17. content_reports — 콘텐츠 신고
+
+응원 메시지·분실물 게시·분실물 댓글 신고(로그인 필요). 대상 테이블이 셋이라 다형 참조(`target_type` + `target_id`)로 두고, FK 대신 앱에서 존재를 검증한다.
 
 | 컬럼 | 한글명 | 타입 | NULL | 역할 |
 |---|---|---|---|---|
 | id | 콘텐츠 신고 ID | BIGINT UNSIGNED | N | PK |
-| target_type | 대상 유형 | VARCHAR(10) | N | `CHEER` / `LOST_ITEM` |
-| target_id | 대상 게시물 ID | BIGINT UNSIGNED | N | cheers.id 또는 lost_items.id |
+| target_type | 대상 유형 | VARCHAR(20) | N | `CHEER` / `LOST_ITEM` / `LOST_ITEM_COMMENT` |
+| target_id | 대상 게시물 ID | BIGINT UNSIGNED | N | cheers.id, lost_items.id 또는 lost_item_comments.id |
 | reporter_user_id | 신고자 회원 ID | BIGINT UNSIGNED | Y | FK → users. (target_type, target_id, reporter) 유니크 → 1인 1회 |
 | reason | 사유 | VARCHAR(20) | N | |
 | reviewed_at | 운영자 검토 시각 | DATETIME | Y | |
 | created_at / updated_at | 신고·수정 시각 | DATETIME | N | |
 
-## 15. notices — 공지
+## 18. notices — 공지
 
 | 컬럼 | 한글명 | 타입 | NULL | 역할 |
 |---|---|---|---|---|
@@ -309,7 +366,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | created_by | 작성 운영자 ID | BIGINT UNSIGNED | Y | FK → users(role=STAFF/OWNER) |
 | created_at / updated_at | 작성·수정 시각 | DATETIME | N | |
 
-## 16. festival_photos — 축제 사진
+## 19. festival_photos — 축제 사진
 
 운영진 게시 사진. 세 가지 URL은 업로드 파이프라인(원본 보관 → 리사이즈 → 썸네일) 산출물이다.
 
@@ -328,7 +385,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | is_hidden | 숨김 여부 | TINYINT(1) | N | |
 | created_at / updated_at | 업로드·수정 시각 | DATETIME | N | |
 
-## 17. app_settings — 앱 설정
+## 20. app_settings — 앱 설정
 
 코드 수정 없이 바꿔야 하는 값들. DDL 끝의 INSERT가 초기값이다. 회차 시각은 여기가 아니라 `match_rounds` 행에서 관리한다.
 
@@ -373,6 +430,9 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | FestivalPhoto | festival_photos | |
 | Notice | notices | |
 | LostItem | lost_items | `moderationStatus` 추가 |
+| LostItemImage | lost_item_images | 게시글당 이미지 0~1장, 1600px·400px JPEG URL |
+| LostItemCommentAlias | lost_item_comment_aliases | `(lostItemId, userId)`별 글 단위 익명 닉네임 |
+| LostItemComment | lost_item_comments | 최상위 댓글 + 1단계 답글, 소프트 삭제·신고·운영자 숨김 |
 | Cheer | cheers | **`authorUserId` 없음**. `writerKeyHash`, `moderationStatus` |
 | ContentReport | content_reports | |
 | AdminUser | users.role | 별도 테이블 대신 role 통합 |
@@ -389,7 +449,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 - **신고 누적**: `blocks` INSERT 트랜잭션 안에서 대상 카운트 → 임계값이면 `users.matching_blocked_at` 갱신 + 해당 회차 `applications` 삭제
 - **report_count**: `content_reports` INSERT와 같은 트랜잭션에서 `report_count = report_count + 1`. 재계산 배치로 정합성 보정 가능
 - **익명 키**: 응원 메시지 첫 작성 시 서버가 UUID 쿠키(`anon_key`, HttpOnly, 30일)를 발급. 저장은 SHA-256 해시만. 속도 제한은 Redis `INCR anon:{hash}` TTL 60초 + `INCR ip:{ip}` TTL 60초. 운영자 차단은 Redis 집합 또는 `app_settings`가 아닌 별도 캐시 키로(차단 목록이 길어지면 테이블 분리 검토)
-- **콘텐츠 필터 파이프라인**: 정규식 → 금칙어(`filter.banned_words`) → LLM API(`filter.llm.enabled`). LLM 단계 타임아웃 2초, 실패 시 `moderation_status = 'SKIPPED'`로 저장하고 운영자 검토 목록에 노출. 외부 API에는 본문만 전송
+- **콘텐츠 필터 파이프라인**: 정규식 → 금칙어(`filter.banned_words`) → LLM API(`filter.llm.enabled`). 응원 메시지·분실물·분실물 댓글에 적용한다. LLM 단계 타임아웃 2초, 실패 시 `moderation_status = 'SKIPPED'`로 저장하고 운영자 검토 목록에 노출. 외부 API에는 본문만 전송
 - **인덱스**: 발표 순간 조회(`matches.application_id`), 회차별 풀(`applications(round_id, gender)`), 이월 추적(`applications.source_application_id`), 티커(`cheers.created_at`), 익명 키 일괄 처리(`cheers.writer_key_hash`)
 - **운영자 role 부여**: 로그인 콜백에서 `(provider, provider_user_id)`가 `admin.allowlist`에 있으면 role 설정. role을 바꾸는 사용자 API·엔드포인트는 만들지 않는다
 - **운영자 권한 검사**: 운영자 API에서 JWT의 uid로 `users.role` 조회(캐시 가능). 회차 발표·설정 변경은 `OWNER`만
@@ -405,3 +465,5 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | v1.2 | 2026-09-17 | 응원 메시지 비로그인(작성자 FK 제거, 익명 키 해시), 필터 상태 컬럼, 이월 신청 자동 생성(`entry_type`·`source_application_id`), 회차 초기값 16:00/20:00, `matching_blocked_at`·VARCHAR(1)·감사 시각 통일·대문자 열거형(스프링 엔티티 정합), 설정 키 6종 추가 |
 | v1.3 | 2026-09-24 | `timetable_slots.slot_type`에 `EVENT` 추가, 타임테이블 초기 데이터(V3: 무대 1·공연 13) |
 | v1.4 | 2026-09-24 | `places.category`를 공연장·화장실·배달존으로 개편하고 V5에서 기존 카테고리를 안전하게 비노출 전환 |
+| v1.5 | 2026-09-25 | 분실물 댓글·1단계 답글과 글 단위 익명 별칭 테이블을 추가하고, 댓글을 콘텐츠 신고 대상으로 확장(V6) |
+| v1.6 | 2026-09-26 | 분실물 게시글당 이미지 1장을 저장하는 `lost_item_images` 테이블과 유니크 제약을 추가(V7) |

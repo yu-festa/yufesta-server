@@ -13,6 +13,7 @@ import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.appsetting.enums.SettingKey;
 import com.yufesta.domain.appsetting.service.AppSettingReader;
 import com.yufesta.domain.cheer.service.CheerService;
+import com.yufesta.domain.lostitem.comment.service.LostItemCommentService;
 import com.yufesta.domain.lostitem.service.LostItemService;
 import com.yufesta.domain.report.dto.request.CreateContentReportRequest;
 import com.yufesta.domain.report.dto.response.AdminContentReportResponse;
@@ -51,6 +52,9 @@ class ContentReportServiceTest {
 
     @Mock
     private LostItemService lostItemService;
+
+    @Mock
+    private LostItemCommentService lostItemCommentService;
 
     @Mock
     private AppSettingReader appSettingReader;
@@ -101,6 +105,21 @@ class ContentReportServiceTest {
 
         verify(lostItemService).lockReportableForReport(2L);
         verify(lostItemService).incrementReportCountAndHideIfThreshold(2L, 2);
+    }
+
+    @Test
+    void 로그인_사용자가_분실물_댓글을_신고하면_댓글_누적_처리를_호출한다() {
+        User reporter = reporter(7L);
+        when(userService.getUser(7L)).thenReturn(reporter);
+        when(contentReportRepository.existsByTargetTypeAndTargetIdAndReporter_Id(
+                ContentTargetType.LOST_ITEM_COMMENT, 3L, 7L)).thenReturn(false);
+        when(contentReportRepository.saveAndFlush(any(ContentReport.class))).thenAnswer(invocation -> saved(invocation.getArgument(0)));
+        when(appSettingReader.getInt(SettingKey.REPORT_HIDE_THRESHOLD)).thenReturn(2);
+
+        contentReportService.create(7L, lostItemCommentRequest());
+
+        verify(lostItemCommentService).lockReportableForReport(3L);
+        verify(lostItemCommentService).incrementReportCountAndHideIfThreshold(3L, 2);
     }
 
     @Test
@@ -195,6 +214,10 @@ class ContentReportServiceTest {
 
     private static CreateContentReportRequest lostItemRequest() {
         return new CreateContentReportRequest(ContentTargetType.LOST_ITEM, 2L, "부적절한 내용");
+    }
+
+    private static CreateContentReportRequest lostItemCommentRequest() {
+        return new CreateContentReportRequest(ContentTargetType.LOST_ITEM_COMMENT, 3L, "부적절한 내용");
     }
 
     private static User reporter(Long id) {

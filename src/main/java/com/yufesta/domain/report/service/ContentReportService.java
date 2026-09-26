@@ -5,6 +5,7 @@ import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.appsetting.enums.SettingKey;
 import com.yufesta.domain.appsetting.service.AppSettingReader;
 import com.yufesta.domain.cheer.service.CheerService;
+import com.yufesta.domain.lostitem.comment.service.LostItemCommentService;
 import com.yufesta.domain.lostitem.service.LostItemService;
 import com.yufesta.domain.report.dto.request.CreateContentReportRequest;
 import com.yufesta.domain.report.dto.response.AdminContentReportResponse;
@@ -36,6 +37,7 @@ public class ContentReportService {
     private final UserService userService;
     private final CheerService cheerService;
     private final LostItemService lostItemService;
+    private final LostItemCommentService lostItemCommentService;
     private final AppSettingReader appSettingReader;
     private final Clock clock;
 
@@ -44,6 +46,7 @@ public class ContentReportService {
             UserService userService,
             CheerService cheerService,
             LostItemService lostItemService,
+            LostItemCommentService lostItemCommentService,
             AppSettingReader appSettingReader,
             Clock clock
     ) {
@@ -51,6 +54,7 @@ public class ContentReportService {
         this.userService = userService;
         this.cheerService = cheerService;
         this.lostItemService = lostItemService;
+        this.lostItemCommentService = lostItemCommentService;
         this.appSettingReader = appSettingReader;
         this.clock = clock;
     }
@@ -108,6 +112,7 @@ public class ContentReportService {
         switch (targetType) {
             case CHEER -> cheerService.lockReportableForReport(targetId);
             case LOST_ITEM -> lostItemService.lockReportableForReport(targetId);
+            case LOST_ITEM_COMMENT -> lostItemCommentService.lockReportableForReport(targetId);
         }
     }
 
@@ -116,6 +121,7 @@ public class ContentReportService {
         switch (targetType) {
             case CHEER -> cheerService.incrementReportCountAndHideIfThreshold(targetId, threshold);
             case LOST_ITEM -> lostItemService.incrementReportCountAndHideIfThreshold(targetId, threshold);
+            case LOST_ITEM_COMMENT -> lostItemCommentService.incrementReportCountAndHideIfThreshold(targetId, threshold);
         }
     }
 
@@ -140,6 +146,7 @@ public class ContentReportService {
         return switch (report.getTargetType()) {
             case CHEER -> cheerService.getTargetStatusForAdmin(report.getTargetId());
             case LOST_ITEM -> lostItemService.getTargetStatusForAdmin(report.getTargetId());
+            case LOST_ITEM_COMMENT -> lostItemCommentService.getTargetStatusForAdmin(report.getTargetId());
         };
     }
 
