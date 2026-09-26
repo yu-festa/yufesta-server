@@ -28,7 +28,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * 초기 데이터 마이그레이션(V2~V5)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
+ * 초기 데이터 마이그레이션(V2~V6)이 문법 오류 없이 실행되고 기대한 행을 넣는지 H2(MySQL 모드)로 확인.
  * V1은 MySQL 전용 문법이라 여기서 실행하지 않고, 스키마는 Hibernate가 엔티티로 만든다. 엔티티 저장이 필요한 케이스를 위해 Auditing 설정을 넣는다
  */
 @DataJpaTest
@@ -164,7 +164,28 @@ class InitialDataMigrationTest {
         }
     }
 
+    @Test
+    void 분실물_댓글_마이그레이션은_댓글과_글_단위_별칭_테이블을_만든다() {
+        // Hibernate가 만든 테이블을 지운 뒤 V6가 실제 CREATE TABLE 문을 수행하게 한다.
+        jdbcTemplate.execute("DROP TABLE lost_item_comment_aliases");
+        jdbcTemplate.execute("DROP TABLE lost_item_comments");
+
+        populate("db/migration/V6__lost_item_comments.sql");
+
+        assertThat(tableExists("LOST_ITEM_COMMENTS")).isTrue();
+        assertThat(tableExists("LOST_ITEM_COMMENT_ALIASES")).isTrue();
+    }
+
     private void populate(String path) {
         new ResourceDatabasePopulator(new ClassPathResource(path)).execute(dataSource);
+    }
+
+    private boolean tableExists(String tableName) {
+        Integer count = jdbcTemplate.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM information_schema.tables
+                        WHERE LOWER(table_name) = LOWER(?)
+                        """, Integer.class, tableName);
+        return count != null && count == 1;
     }
 }
