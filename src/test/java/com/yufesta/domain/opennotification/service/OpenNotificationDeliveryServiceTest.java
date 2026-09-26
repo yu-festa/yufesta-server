@@ -28,7 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class OpenNotificationDeliveryServiceTest {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 2, 0, 0);
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 10, 2, 8, 0);
 
     @Mock
     private OpenNotificationSubscriptionRepository subscriptionRepository;
@@ -130,7 +130,7 @@ class OpenNotificationDeliveryServiceTest {
     private static OpenNotificationProperties properties() {
         return new OpenNotificationProperties(
                 "public-key", "private-key", "mailto:team@yufesta.com",
-                OffsetDateTime.parse("2026-10-02T00:00:00+09:00"),
+                OffsetDateTime.parse("2026-10-02T08:00:00+09:00"),
                 3, Duration.ofMinutes(1), Duration.ofMinutes(2), 20
         );
     }

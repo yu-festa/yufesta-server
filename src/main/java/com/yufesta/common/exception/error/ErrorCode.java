@@ -37,6 +37,7 @@ public enum ErrorCode {
     // 서비스 오픈 알림
     OPEN_NOTIFICATION_CLOSED(HttpStatus.CONFLICT, "OPEN_NOTIFICATION_CLOSED", "서비스 오픈 알림 신청 기간이 지났어요."),
     OPEN_NOTIFICATION_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "OPEN_NOTIFICATION_NOT_CONFIGURED", "알림 서비스를 준비 중이에요. 잠시 후 다시 시도해 주세요."),
+    OPEN_NOTIFICATION_TEST_DELIVERY_FAILED(HttpStatus.BAD_GATEWAY, "OPEN_NOTIFICATION_TEST_DELIVERY_FAILED", "테스트 푸시 발송에 실패했어요. 브라우저 구독 상태를 확인해 주세요."),
 
     // 지도
     PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다."),
