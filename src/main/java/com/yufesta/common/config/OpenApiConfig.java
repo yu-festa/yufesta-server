@@ -33,13 +33,8 @@ public class OpenApiConfig {
 
     private static final String ERROR_SCHEMA_REF = "#/components/schemas/ErrorResponse";
     private static final String ADMIN_PREFIX = "/api/v1/admin/";
-    // 비로그인 쓰기(§7): 응원 메시지 작성·삭제, 서비스 오픈 알림 구독·취소, 로그아웃
-    private static final Set<String> PUBLIC_WRITE_PATHS = Set.of(
-            "/api/v1/cheers",
-            "/api/v1/cheers/{id}",
-            "/api/v1/auth/logout",
-            "/api/v1/open-notifications/subscriptions"
-    );
+    // 비로그인 쓰기(§7): 응원 메시지 작성·삭제, 로그아웃
+    private static final Set<String> PUBLIC_WRITE_PATHS = Set.of("/api/v1/cheers", "/api/v1/cheers/{id}", "/api/v1/auth/logout");
 
     @Bean
     public OpenAPI openApi(AuthProperties authProperties) {

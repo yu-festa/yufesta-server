@@ -130,8 +130,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/cheers").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/cheers/*").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/open-notifications/subscriptions").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/open-notifications/subscriptions").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll()
                 )
