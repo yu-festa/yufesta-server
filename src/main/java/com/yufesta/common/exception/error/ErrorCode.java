@@ -48,6 +48,8 @@ public enum ErrorCode {
 
     // 분실물
     LOST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_NOT_FOUND", "분실물 게시글을 찾을 수 없습니다."),
+    LOST_ITEM_COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "LOST_ITEM_COMMENT_NOT_FOUND", "분실물 댓글을 찾을 수 없습니다."),
+    LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED", "답글에는 다시 답글을 작성할 수 없습니다."),
 
     // 콘텐츠 신고
     CONTENT_REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "CONTENT_REPORT_TARGET_NOT_FOUND", "신고할 콘텐츠를 찾을 수 없습니다."),
