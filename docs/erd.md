@@ -1,6 +1,10 @@
-# YU FESTA ERD 설명서 v1.6
+# YU FESTA ERD 설명서 v1.7
 
-기준: SRS v1.9 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+기준: SRS v2.0 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+
+v1.7 변경 요약 (2026-09-26, 서비스 오픈 Web Push)
+- **브라우저 단위 구독**: `open_notification_subscriptions`가 로그인 없이 생성한 `endpoint`, `p256dh_key`, `auth_key`를 한 번만 보관한다. `endpoint` 유니크 제약이 중복 저장·발송을 막는다
+- **중복 없는 예약 발송**: `status`, `delivery_lease_until`, 재시도 시각·횟수로 다중 ECS 태스크의 발송 작업을 한 건씩 claim하고, 성공·취소·만료 구독을 구분한다
 
 v1.6 변경 요약 (2026-09-26, 분실물 이미지)
 - **게시글당 1장**: `lost_item_images`가 분실물 게시글의 본문용 1600px JPEG URL과 400px 썸네일 URL을 0~1개로 보관한다. `lost_item_id` 유니크 제약으로 여러 장 저장을 막는다
@@ -32,7 +36,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 
 1. ERDCloud에서 새 ERD 생성 → 상단 **가져오기 > SQL** → DB 종류 **MySQL** → `erd.sql` 내용 붙여넣기
 2. 컬럼 `COMMENT`가 **논리명(한글)** 으로 들어가고, `FOREIGN KEY`가 관계선으로 그려집니다
-3. 가져온 뒤 확인할 것: 관계선 27개(아래 관계 표), `users`·`applications`·`matches`가 중앙에 오도록 배치. `cheers`는 어느 테이블과도 선이 없는 것이 정상
+3. 가져온 뒤 확인할 것: 관계선 27개(아래 관계 표), `users`·`applications`·`matches`가 중앙에 오도록 배치. `cheers`와 `open_notification_subscriptions`는 어느 테이블과도 선이 없는 것이 정상
 
 ## 설계 규칙
 
@@ -355,7 +359,26 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | reviewed_at | 운영자 검토 시각 | DATETIME | Y | |
 | created_at / updated_at | 신고·수정 시각 | DATETIME | N | |
 
-## 18. notices — 공지
+## 18. open_notification_subscriptions — 서비스 오픈 Web Push 구독
+
+로그인 없이 브라우저가 발급한 Web Push 구독을 저장한다. `endpoint`는 수신 권한을 가진 capability URL이므로 공개 API 응답·일반 로그에 원문을 내보내지 않는다. 사용자가 재신청하면 같은 endpoint 행을 활성 상태로 갱신하며, 서버는 오픈 시각 뒤 DB lease를 잡은 한 태스크만 발송한다.
+
+| 컬럼 | 한글명 | 타입 | NULL | 역할 |
+|---|---|---|---|---|
+| id | 서비스 오픈 알림 구독 ID | BIGINT UNSIGNED | N | PK |
+| endpoint | 브라우저 Push endpoint | VARCHAR(500) | N | 유니크. 같은 브라우저 구독의 중복 저장·발송 방지 |
+| p256dh_key | P-256 ECDH 공개키 | VARCHAR(255) | N | Web Push payload 암호화용 키 |
+| auth_key | 인증 비밀값 | VARCHAR(255) | N | Web Push payload 암호화용 키 |
+| status | 발송 상태 | VARCHAR(10) | N | `ACTIVE` / `SENDING` / `SENT` / `CANCELLED` / `EXPIRED` |
+| attempt_count | 발송 시도 횟수 | INT UNSIGNED | N | 일시 실패 재시도 상한 판단 |
+| next_attempt_at | 다음 재시도 시각 | DATETIME | Y | `ACTIVE` 상태에서 이 시각 이후 다시 claim |
+| delivery_lease_until | 발송 lease 만료 시각 | DATETIME | Y | `SENDING` 태스크 비정상 종료 후 다른 태스크가 회수하는 기준 |
+| delivered_at | Push 수락 시각 | DATETIME | Y | 수락 성공 후 `SENT` 확정 시각 |
+| cancelled_at | 구독 취소 시각 | DATETIME | Y | 브라우저의 취소 API 호출 시각 |
+| last_error | 마지막 결과 코드 | VARCHAR(100) | Y | HTTP 상태·재시도 종료 코드만 보관. endpoint·키 원문 금지 |
+| created_at / updated_at | 생성·수정 시각 | DATETIME | N | |
+
+## 19. notices — 공지
 
 | 컬럼 | 한글명 | 타입 | NULL | 역할 |
 |---|---|---|---|---|
@@ -366,7 +389,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | created_by | 작성 운영자 ID | BIGINT UNSIGNED | Y | FK → users(role=STAFF/OWNER) |
 | created_at / updated_at | 작성·수정 시각 | DATETIME | N | |
 
-## 19. festival_photos — 축제 사진
+## 20. festival_photos — 축제 사진
 
 운영진 게시 사진. 세 가지 URL은 업로드 파이프라인(원본 보관 → 리사이즈 → 썸네일) 산출물이다.
 
@@ -385,7 +408,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | is_hidden | 숨김 여부 | TINYINT(1) | N | |
 | created_at / updated_at | 업로드·수정 시각 | DATETIME | N | |
 
-## 20. app_settings — 앱 설정
+## 21. app_settings — 앱 설정
 
 코드 수정 없이 바꿔야 하는 값들. DDL 끝의 INSERT가 초기값이다. 회차 시각은 여기가 아니라 `match_rounds` 행에서 관리한다.
 
@@ -433,6 +456,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | LostItemImage | lost_item_images | 게시글당 이미지 0~1장, 1600px·400px JPEG URL |
 | LostItemCommentAlias | lost_item_comment_aliases | `(lostItemId, userId)`별 글 단위 익명 닉네임 |
 | LostItemComment | lost_item_comments | 최상위 댓글 + 1단계 답글, 소프트 삭제·신고·운영자 숨김 |
+| OpenNotificationSubscription | open_notification_subscriptions | 로그인 없는 서비스 오픈 Web Push 구독. endpoint 유니크·DB lease·재시도 상태 |
 | Cheer | cheers | **`authorUserId` 없음**. `writerKeyHash`, `moderationStatus` |
 | ContentReport | content_reports | |
 | AdminUser | users.role | 별도 테이블 대신 role 통합 |
@@ -467,3 +491,4 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | v1.4 | 2026-09-24 | `places.category`를 공연장·화장실·배달존으로 개편하고 V5에서 기존 카테고리를 안전하게 비노출 전환 |
 | v1.5 | 2026-09-25 | 분실물 댓글·1단계 답글과 글 단위 익명 별칭 테이블을 추가하고, 댓글을 콘텐츠 신고 대상으로 확장(V6) |
 | v1.6 | 2026-09-26 | 분실물 게시글당 이미지 1장을 저장하는 `lost_item_images` 테이블과 유니크 제약을 추가(V7) |
+| v1.7 | 2026-09-26 | 서비스 오픈 Web Push 구독의 endpoint·암호화 키와 DB lease·재시도 상태를 저장하는 `open_notification_subscriptions` 테이블을 추가(V8) |
