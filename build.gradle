@@ -27,6 +27,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
+	// 브라우저 Web Push의 VAPID 인증과 payload 암호화. web-push의 Gradle api 변형은 전송·암호화 의존성을 노출하지 않아 명시한다.
+	implementation 'nl.martijndwars:web-push:5.1.2'
+	implementation 'org.apache.httpcomponents:httpasyncclient:4.1.5'
+	implementation 'org.bitbucket.b_c:jose4j:0.7.9'
+	implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
 	// 이미지 저장소(S3)와 리사이즈. AWS SDK는 Boot BOM 밖이라 자체 BOM으로 버전을 맞춘다. 동기 클라이언트만 쓰므로 netty는 제외
 	implementation platform('software.amazon.awssdk:bom:2.55.4')
 	implementation('software.amazon.awssdk:s3') {
