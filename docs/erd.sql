@@ -1,5 +1,5 @@
 -- ============================================================
--- YU FESTA ERD v1.5 (SRS v1.8 기준) — MySQL 8.x
+-- YU FESTA ERD v1.6 (SRS v1.9 기준) — MySQL 8.x
 -- ERDCloud: 가져오기 > SQL > MySQL 로 import. 컬럼 COMMENT = 논리명(한글)
 -- 규칙: PK는 BIGINT UNSIGNED AUTO_INCREMENT, 열거형은 VARCHAR + 허용값 주석(값은 대문자 enum 이름),
 --       불리언은 TINYINT(1), 시각은 DATETIME(KST), 모든 테이블에 created_at·updated_at, 문자셋 utf8mb4
@@ -231,6 +231,18 @@ CREATE TABLE `lost_items` (
   KEY `idx_lost_status` (`status`, `created_at`),
   CONSTRAINT `fk_lost_user` FOREIGN KEY (`author_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='분실물 게시';
+
+CREATE TABLE `lost_item_images` (
+  `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '분실물 이미지 ID',
+  `lost_item_id`  BIGINT UNSIGNED NOT NULL COMMENT '분실물 게시글 ID',
+  `image_url`     VARCHAR(500)    NOT NULL COMMENT '긴 변 1600px 본문용 JPEG URL',
+  `thumbnail_url` VARCHAR(500)    NOT NULL COMMENT '긴 변 400px 썸네일 JPEG URL',
+  `created_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시각',
+  `updated_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시각',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_lost_item_images_lost_item` (`lost_item_id`),
+  CONSTRAINT `fk_lost_item_images_lost_item` FOREIGN KEY (`lost_item_id`) REFERENCES `lost_items` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='분실물 게시글 이미지 한 장';
 
 CREATE TABLE `lost_item_comment_aliases` (
   `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '분실물 댓글 별칭 ID',

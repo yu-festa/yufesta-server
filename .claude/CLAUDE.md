@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v1.6), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.3)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v1.9), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.6)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`, `V2__initial_data.sql`, `V3__timetable_initial.sql`, `V4__club_initial.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`~`V7__lost_item_image.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 이미지 | `software.amazon.awssdk:s3`(AWS BOM 2.55.4, netty 제외) + `net.coobird:thumbnailator` 0.4.21. 저장소는 `app.storage.type` local(기본)·s3 |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
@@ -85,7 +85,7 @@ com.yufesta
 ```
 
 - 새 공통 설정(Clock, CORS, OpenAPI, Redis, S3 등)은 `common/config`, SSE 기반은 `common/sse`에 둔다.
-- 도메인 ↔ 테이블: `user`(users) · `auth`(테이블 없음) · `appsetting`(app_settings) · `match`(match_rounds, applications, application_tags, matches, blocks) · `timetable`(timetable_slots) · `place`(places, place_events) · `club`(clubs) · `notice`(notices) · `lostitem`(lost_items) · `cheer`(cheers) · `report`(content_reports) · `nickname`(테이블 없음) · `moderation`(콘텐츠 필터, 테이블 없음) · `photo`(festival_photos)
+- 도메인 ↔ 테이블: `user`(users) · `auth`(테이블 없음) · `appsetting`(app_settings) · `match`(match_rounds, applications, application_tags, matches, blocks) · `timetable`(timetable_slots) · `place`(places, place_events) · `club`(clubs) · `notice`(notices) · `lostitem`(lost_items, lost_item_images) · `cheer`(cheers) · `report`(content_reports) · `nickname`(테이블 없음) · `moderation`(콘텐츠 필터, 테이블 없음) · `photo`(festival_photos)
 - 운영자 API는 별도 `admin` 패키지를 만들지 않고 각 도메인의 `Admin<Domain>Controller`에 둔다. URL은 `/api/v1/admin/<도메인>`.
 
 ## 4. 계층 규칙
@@ -386,6 +386,7 @@ denyAll     : anyRequest
 | GET /api/v1/clubs, /api/v1/clubs/{id} | 라인업 | - |
 | GET /api/v1/notices, /api/v1/notices/{id}, /api/v1/notices/banner | 공지 | - |
 | GET / POST /api/v1/lost-items, PATCH /api/v1/lost-items/{id}/resolve, DELETE /api/v1/lost-items/{id} | 분실물 | 쓰기 필수 |
+| POST /api/v1/lost-items/{id}/images, DELETE /api/v1/lost-items/{id}/images/{imageId} | 분실물 이미지 1장 첨부·삭제 | 쓰기 필수 |
 | GET / POST /api/v1/cheers, DELETE /api/v1/cheers/{id} | 응원 메시지 | 불필요(익명 키) |
 | POST /api/v1/reports | 콘텐츠 신고 | 필수 |
 | GET /api/v1/photos | 축제 사진 | - |
