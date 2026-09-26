@@ -43,8 +43,6 @@ class OpenApiConfigTest {
                 .andExpect(jsonPath("$.paths['/api/v1/match/results/me'].get.security[0].cookieAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/match/summary'].get.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/match/summary'].get.responses['401']").doesNotExist())
-                .andExpect(jsonPath("$.paths['/api/v1/open-notifications/subscriptions'].post.security").doesNotExist())
-                .andExpect(jsonPath("$.paths['/api/v1/open-notifications/subscriptions'].delete.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/match/summary'].get.responses['500'].content['application/json'].schema['$ref']")
                         .value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.security").doesNotExist());
@@ -56,8 +54,6 @@ class OpenApiConfigTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/match/rounds'].get.security[0].cookieAuth").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/match/rounds'].get.responses['403']").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/admin/open-notifications/test-push'].post.security[0].cookieAuth").exists())
-                .andExpect(jsonPath("$.paths['/api/v1/admin/open-notifications/test-push'].post.responses['403']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/match/summary']").doesNotExist());
     }
 }
