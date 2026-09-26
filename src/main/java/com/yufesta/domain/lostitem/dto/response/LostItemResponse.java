@@ -16,6 +16,7 @@ public record LostItemResponse(
         LocalDateTime occurredAt,
         LostItemStatus status,
         String displayName,
+        LostItemImageResponse image,
         LocalDateTime createdAt
 ) {
 
@@ -28,6 +29,7 @@ public record LostItemResponse(
                 .occurredAt(lostItem.getOccurredAt())
                 .status(lostItem.getStatus())
                 .displayName(lostItem.getDisplayName())
+                .image(lostItem.getImage() == null ? null : LostItemImageResponse.from(lostItem.getImage()))
                 .createdAt(lostItem.getCreatedAt())
                 .build();
     }
