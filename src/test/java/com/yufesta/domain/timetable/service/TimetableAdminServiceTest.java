@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.club.entity.Club;
@@ -52,6 +53,9 @@ class TimetableAdminServiceTest {
 
     @Mock
     private ApplicationService applicationService;
+
+    @Mock
+    private PublicCacheEvictor cacheEvictor;
 
     @InjectMocks
     private TimetableAdminService timetableAdminService;

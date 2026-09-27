@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.notice.dto.request.CreateNoticeRequest;
@@ -35,6 +36,9 @@ class NoticeServiceTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private PublicCacheEvictor cacheEvictor;
 
     @InjectMocks
     private NoticeService noticeService;

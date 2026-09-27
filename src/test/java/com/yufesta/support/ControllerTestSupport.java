@@ -15,10 +15,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * @WebMvcTest 공통 지원. 실제 SecurityConfig(인가 규칙·CSRF·401/403 JSON)를 슬라이스에 넣고
- * 보안 설정이 요구하는 협력 빈은 mock으로 채운다. 컨트롤러 테스트는 이 클래스를 상속한다
+ * 보안 설정이 요구하는 협력 빈은 mock으로 채운다. 응답 캐시는 꺼진 실제 구현을 쓴다(DisabledCacheConfig).
+ * 컨트롤러 테스트는 이 클래스를 상속한다
  */
 @ActiveProfiles("test")
-@Import({SecurityConfig.class, CorsConfig.class, ClockConfig.class})
+@Import({SecurityConfig.class, CorsConfig.class, ClockConfig.class, DisabledCacheConfig.class})
 @MockitoBean(types = {
         ClientRegistrationRepository.class,
         UserLoginService.class,

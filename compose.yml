@@ -16,6 +16,17 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
+  # 응답 캐시. 운영은 ElastiCache(Valkey). 캐시가 없어도 앱은 동작하므로 필수는 아니다
+  redis:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   app:
     build: .
     environment:
@@ -33,6 +44,7 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
       IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
+      REDIS_HOST: redis
       IMAGE_CDN_URL: ${IMAGE_CDN_URL:-http://localhost:8080/uploads}
     ports:
       - "${APP_PORT:-8080}:8080"

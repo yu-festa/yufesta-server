@@ -1,5 +1,6 @@
 package com.yufesta.domain.place.service;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.place.dto.request.CreatePlaceEventRequest;
@@ -28,10 +29,16 @@ public class PlaceService {
 
     private final PlaceRepository placeRepository;
     private final PlaceEventRepository placeEventRepository;
+    private final PublicCacheEvictor cacheEvictor;
 
-    public PlaceService(PlaceRepository placeRepository, PlaceEventRepository placeEventRepository) {
+    public PlaceService(
+            PlaceRepository placeRepository,
+            PlaceEventRepository placeEventRepository,
+            PublicCacheEvictor cacheEvictor
+    ) {
         this.placeRepository = placeRepository;
         this.placeEventRepository = placeEventRepository;
+        this.cacheEvictor = cacheEvictor;
     }
 
     /**
@@ -81,7 +88,9 @@ public class PlaceService {
                 .active(request.active())
                 .build();
 
-        return AdminPlaceResponse.from(placeRepository.save(place));
+        AdminPlaceResponse response = AdminPlaceResponse.from(placeRepository.save(place));
+        cacheEvictor.evictPlaces(response.id());
+        return response;
     }
 
     /**
@@ -103,6 +112,7 @@ public class PlaceService {
                 request.sortOrder(),
                 request.active()
         );
+        cacheEvictor.evictPlaces(placeId);
 
         return AdminPlaceResponse.from(place);
     }
@@ -122,6 +132,7 @@ public class PlaceService {
                 .sortOrder(request.sortOrder())
                 .build();
 
+        cacheEvictor.evictPlaces(placeId);
         return PlaceEventResponse.from(placeEventRepository.save(placeEvent));
     }
 
@@ -136,6 +147,7 @@ public class PlaceService {
         PlaceEvent placeEvent = placeEventRepository.findByIdAndPlace_Id(placeEventId, placeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PLACE_EVENT_NOT_FOUND));
         placeEvent.update(request.name(), request.timeText(), request.sortOrder());
+        cacheEvictor.evictPlaces(placeId);
 
         return PlaceEventResponse.from(placeEvent);
     }

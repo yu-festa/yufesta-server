@@ -132,3 +132,15 @@ variable "db_pool_size" {
   type        = number
   default     = 20
 }
+
+variable "redis_node_type" {
+  description = "ElastiCache 노드 타입. 응답 캐시 전용이라 가장 작은 것으로 시작한다(월 약 $12)"
+  type        = string
+  default     = "cache.t4g.micro"
+}
+
+variable "cache_enabled" {
+  description = "응답 캐시 사용 여부(CACHE_ENABLED). 캐시가 의심스러우면 false로 apply해 DB 경로로 즉시 되돌린다"
+  type        = bool
+  default     = true
+}

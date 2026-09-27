@@ -5,6 +5,20 @@ spring:
   profiles:
     default: dev
 
+  data:
+    redis:
+      # 로컬은 compose의 redis, 운영은 ElastiCache 주소를 Terraform이 넣는다.
+      # 캐시가 죽어도 앱은 DB 경로로 동작하므로 기동을 막지 않는다(ResponseCache가 예외를 먹는다)
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 200ms          # 캐시를 기다리다 본 요청이 느려지면 안 된다. 짧게 끊고 DB로 간다
+      connect-timeout: 500ms
+      # Lettuce는 커넥션 하나를 여러 스레드가 공유하며 명령을 파이프라인으로 보낸다(스레드 안전).
+      # 풀을 켜면 commons-pool2 의존성이 더 필요하고, 우리 사용 패턴(짧은 GET/SET)에서는 이득이 없다
+      lettuce:
+        pool:
+          enabled: false
+
   servlet:
     multipart:
       # 사진 업로드 장당 10MB(FR-PH-05). 초과는 MaxUploadSizeExceededException → PHOTO_TOO_LARGE(413)
@@ -22,6 +36,15 @@ app:
     # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
     enabled: ${SCHEDULER_ENABLED:true}
     round-tick: PT10S
+  cache:
+    # 응답 캐시 전역 스위치. 문제가 생기면 이 값만 false로 바꿔 즉시 DB 경로로 되돌린다
+    enabled: ${CACHE_ENABLED:true}
+    # 키 앞에 붙는 버전. 응답 형태가 바뀌는 배포에서 이 값을 올리면 옛 캐시를 한 번에 버린다
+    version: v1
+    # 신선 기간이 지난 뒤 "낡았지만 쓸 수 있는" 구간. 재계산 권한을 쥔 요청이 끝날 시간만 주면 되므로
+    # 락 제한(3초)보다 넉넉한 10초로 충분하다. 이 값이 곧 최악의 낡음(신선 기간 + 10초)을 정한다.
+    # 타임테이블 응답에는 serverNow와 isLive가 들어가므로 이 상한을 짧게 유지하는 것이 중요하다
+    stale-window: 10s
   storage:
     # 이미지 저장소. local(기본, ./uploads에 저장하고 /uploads/**로 서빙) | s3(운영, 태스크 역할 자격 증명)
     type: ${IMAGE_STORAGE:local}
@@ -53,3 +76,9 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    redis:
+      # 캐시가 죽어도 앱은 DB 경로로 정상 동작한다(ResponseCache가 예외를 먹는다).
+      # 그런데 Redis 헬스 지표를 켜 두면 캐시 장애가 헬스 DOWN → ALB가 태스크 전부 제외 → 전면 장애로 번진다.
+      # 캐시는 가용성 의존 대상이 아니므로 헬스 판정에서 제외한다
+      enabled: false

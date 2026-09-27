@@ -39,6 +39,9 @@ spring:
 app:
   scheduler:
     enabled: false
+  cache:
+    # 테스트는 Redis 없이 돌린다. 캐시 동작 자체는 ResponseCacheTest·CachedResponseFilterTest가 검증한다
+    enabled: false
   storage:
     type: local
     cdn-url: http://localhost/uploads

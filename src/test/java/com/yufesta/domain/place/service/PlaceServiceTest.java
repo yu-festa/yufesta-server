@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.place.dto.request.CreatePlaceEventRequest;
@@ -39,6 +40,9 @@ class PlaceServiceTest {
 
     @Mock
     private PlaceEventRepository placeEventRepository;
+
+    @Mock
+    private PublicCacheEvictor cacheEvictor;
 
     @InjectMocks
     private PlaceService placeService;

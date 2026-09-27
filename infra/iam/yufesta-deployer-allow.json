@@ -34,7 +34,9 @@
         "cloudfront:Get*",
         "cloudfront:List*",
         "s3:ListAllMyBuckets",
-        "s3:GetBucketLocation"
+        "s3:GetBucketLocation",
+        "elasticache:Describe*",
+        "elasticache:List*"
       ],
       "Resource": "*"
     },
@@ -50,7 +52,8 @@
         "logs:*",
         "cloudwatch:*",
         "sns:*",
-        "acm:*"
+        "acm:*",
+        "elasticache:*"
       ],
       "Resource": "*"
     },

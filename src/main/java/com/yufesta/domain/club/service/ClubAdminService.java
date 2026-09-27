@@ -1,6 +1,7 @@
 package com.yufesta.domain.club.service;
 
 import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.storage.ImageProcessor;
 import com.yufesta.common.storage.ImageStorage;
@@ -36,6 +37,7 @@ public class ClubAdminService {
     private final ImageProcessor imageProcessor;
     private final ImageStorage imageStorage;
     private final StorageProperties storageProperties;
+    private final PublicCacheEvictor cacheEvictor;
 
     public ClubAdminService(
             ClubRepository clubRepository,
@@ -43,7 +45,8 @@ public class ClubAdminService {
             TimetableAdminService timetableAdminService,
             ImageProcessor imageProcessor,
             ImageStorage imageStorage,
-            StorageProperties storageProperties
+            StorageProperties storageProperties,
+            PublicCacheEvictor cacheEvictor
     ) {
         this.clubRepository = clubRepository;
         this.userService = userService;
@@ -51,6 +54,7 @@ public class ClubAdminService {
         this.imageProcessor = imageProcessor;
         this.imageStorage = imageStorage;
         this.storageProperties = storageProperties;
+        this.cacheEvictor = cacheEvictor;
     }
 
     /** 운영자 화면용 전체 목록. 표시 순서·이름순 */
@@ -76,7 +80,9 @@ public class ClubAdminService {
                 .sortOrder(request.sortOrder())
                 .createdBy(createdBy)
                 .build();
-        return AdminClubResponse.from(clubRepository.save(club));
+        AdminClubResponse response = AdminClubResponse.from(clubRepository.save(club));
+        cacheEvictor.evictClubs(response.id());
+        return response;
     }
 
     /**
@@ -94,6 +100,7 @@ public class ClubAdminService {
                 request.instagramUrl(),
                 request.sortOrder()
         );
+        cacheEvictor.evictClubs(clubId);
         return AdminClubResponse.from(club);
     }
 
@@ -114,6 +121,7 @@ public class ClubAdminService {
         String previous = club.getPhotoUrl();
         club.changePhoto(largeUrl);
         deleteStored(previous);
+        cacheEvictor.evictClubs(clubId);
         return AdminClubResponse.from(club);
     }
 
@@ -127,6 +135,7 @@ public class ClubAdminService {
         String previous = club.getPhotoUrl();
         club.changePhoto(null);
         deleteStored(previous);
+        cacheEvictor.evictClubs(clubId);
     }
 
     /**
@@ -139,6 +148,7 @@ public class ClubAdminService {
         // H2 테스트 스키마엔 FK ON DELETE SET NULL이 없으므로 DB에 맡기지 않고 코드에서 끊는다
         timetableAdminService.detachClub(clubId);
         clubRepository.delete(club);
+        cacheEvictor.evictClubs(clubId);
     }
 
     // 저장소 URL이면 1600·썸네일 두 객체를 지운다. 외부 URL(초기 데이터 등)은 건드리지 않는다

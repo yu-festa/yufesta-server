@@ -1,5 +1,6 @@
 package com.yufesta.domain.notice.service;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.notice.dto.request.CreateNoticeRequest;
@@ -23,10 +24,16 @@ public class NoticeService {
 
     private final NoticeRepository noticeRepository;
     private final UserService userService;
+    private final PublicCacheEvictor cacheEvictor;
 
-    public NoticeService(NoticeRepository noticeRepository, UserService userService) {
+    public NoticeService(
+            NoticeRepository noticeRepository,
+            UserService userService,
+            PublicCacheEvictor cacheEvictor
+    ) {
         this.noticeRepository = noticeRepository;
         this.userService = userService;
+        this.cacheEvictor = cacheEvictor;
     }
 
     /**
@@ -60,7 +67,9 @@ public class NoticeService {
                 .banner(request.banner())
                 .createdBy(user)
                 .build();
-        return NoticeResponse.from(noticeRepository.save(notice));
+        NoticeResponse response = NoticeResponse.from(noticeRepository.save(notice));
+        cacheEvictor.evictNotices(response.id());
+        return response;
     }
 
     /**
@@ -72,6 +81,7 @@ public class NoticeService {
         requireLogin(userId);
         Notice notice = getNoticeOrThrow(noticeId);
         notice.update(request.title(), request.body(), request.banner());
+        cacheEvictor.evictNotices(noticeId);
         return NoticeResponse.from(notice);
     }
 
@@ -84,6 +94,7 @@ public class NoticeService {
     public void delete(Long userId, Long noticeId) {
         requireLogin(userId);
         noticeRepository.delete(getNoticeOrThrow(noticeId));
+        cacheEvictor.evictNotices(noticeId);
     }
 
     private Notice getNoticeOrThrow(Long noticeId) {

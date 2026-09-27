@@ -1,6 +1,7 @@
 package com.yufesta.domain.timetable.service;
 
 import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.club.entity.Club;
 import com.yufesta.domain.club.service.ClubService;
@@ -38,17 +39,20 @@ public class TimetableAdminService {
     private final PlaceService placeService;
     private final ClubService clubService;
     private final ApplicationService applicationService;
+    private final PublicCacheEvictor cacheEvictor;
 
     public TimetableAdminService(
             TimetableSlotRepository timetableSlotRepository,
             PlaceService placeService,
             ClubService clubService,
-            ApplicationService applicationService
+            ApplicationService applicationService,
+            PublicCacheEvictor cacheEvictor
     ) {
         this.timetableSlotRepository = timetableSlotRepository;
         this.placeService = placeService;
         this.clubService = clubService;
         this.applicationService = applicationService;
+        this.cacheEvictor = cacheEvictor;
     }
 
     /** 운영자 화면용 전체 목록. 표시 순서대로 */
@@ -75,7 +79,9 @@ public class TimetableAdminService {
                 .stage(getStage(request.stagePlaceId()))
                 .club(getClub(request.clubId()))
                 .build();
-        return AdminTimetableSlotResponse.from(timetableSlotRepository.save(slot));
+        AdminTimetableSlotResponse response = AdminTimetableSlotResponse.from(timetableSlotRepository.save(slot));
+        cacheEvictor.evictTimetable();
+        return response;
     }
 
     /**
@@ -86,6 +92,7 @@ public class TimetableAdminService {
     public AdminTimetableSlotResponse update(Long slotId, UpdateTimetableSlotRequest request) {
         TimetableSlot slot = getSlotOrThrow(slotId);
         slot.update(request.title(), request.slotType(), getStage(request.stagePlaceId()), getClub(request.clubId()));
+        cacheEvictor.evictTimetable();
         return AdminTimetableSlotResponse.from(slot);
     }
 
@@ -99,6 +106,7 @@ public class TimetableAdminService {
         // H2 테스트 스키마엔 FK ON DELETE SET NULL이 없어 코드에서 끊는다(운영 MySQL도 같은 결과)
         applicationService.detachWantedSlot(slotId);
         timetableSlotRepository.delete(slot);
+        cacheEvictor.evictTimetable();
     }
 
     /**
@@ -110,6 +118,7 @@ public class TimetableAdminService {
         validateTimes(request.startAt(), request.endAt());
         TimetableSlot slot = getSlotOrThrow(slotId);
         slot.changeTimes(request.startAt(), request.endAt());
+        cacheEvictor.evictTimetable();
         return AdminTimetableSlotResponse.from(slot);
     }
 
@@ -121,6 +130,7 @@ public class TimetableAdminService {
     public AdminTimetableSlotResponse setDelay(Long slotId, DelaySlotRequest request) {
         TimetableSlot slot = getSlotOrThrow(slotId);
         slot.delay(request.delayMinutes());
+        cacheEvictor.evictTimetable();
         return AdminTimetableSlotResponse.from(slot);
     }
 
@@ -137,6 +147,7 @@ public class TimetableAdminService {
         } else {
             slot.clearLive();
         }
+        cacheEvictor.evictTimetable();
         return AdminTimetableSlotResponse.from(slot);
     }
 
@@ -156,6 +167,7 @@ public class TimetableAdminService {
         for (int i = 0; i < request.slotIds().size(); i++) {
             slotsById.get(request.slotIds().get(i)).reorder(i + 1);
         }
+        cacheEvictor.evictTimetable();
         return request.slotIds().stream()
                 .map(slotsById::get)
                 .map(AdminTimetableSlotResponse::from)

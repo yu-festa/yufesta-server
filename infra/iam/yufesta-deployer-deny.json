@@ -64,7 +64,11 @@
         "cloudfront:DeleteDistribution",
         "cloudfront:TagResource",
         "cloudfront:UntagResource",
-        "cloudfront:CreateInvalidation"
+        "cloudfront:CreateInvalidation",
+        "elasticache:Delete*",
+        "elasticache:Modify*",
+        "elasticache:Reboot*",
+        "elasticache:RemoveTagsFromResource"
       ],
       "Resource": "*",
       "Condition": {

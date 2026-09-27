@@ -44,3 +44,8 @@ output "image_cdn_url" {
   description = "이미지 공개 주소(IMAGE_CDN_URL). 응답의 photoUrl이 이 도메인으로 나간다"
   value       = "https://${aws_cloudfront_distribution.images.domain_name}"
 }
+
+output "redis_endpoint" {
+  description = "응답 캐시 주소(REDIS_HOST). VPC 안에서만 접근된다"
+  value       = aws_elasticache_replication_group.main.primary_endpoint_address
+}

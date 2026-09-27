@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.storage.ImageProcessor;
@@ -53,6 +54,9 @@ class ClubAdminServiceTest {
     @Mock
     private ImageStorage imageStorage;
 
+    @Mock
+    private PublicCacheEvictor cacheEvictor;
+
     private final StorageProperties storageProperties = new StorageProperties(
             "local", "http://cdn.test/uploads",
             new StorageProperties.S3("", "ap-northeast-2"), new StorageProperties.Local("./uploads"));
@@ -62,7 +66,8 @@ class ClubAdminServiceTest {
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         clubAdminService = new ClubAdminService(
-                clubRepository, userService, timetableAdminService, imageProcessor, imageStorage, storageProperties);
+                clubRepository, userService, timetableAdminService, imageProcessor, imageStorage, storageProperties,
+                cacheEvictor);
     }
 
     @Test
