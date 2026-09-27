@@ -12,7 +12,8 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       timeout: 200ms          # 캐시를 기다리다 본 요청이 느려지면 안 된다. 짧게 끊고 DB로 간다
-      connect-timeout: 500ms
+      # 연결 수립은 기동 시 한 번(warmUp)이라 넉넉히 준다. DNS 조회까지 500ms 안에 끝나지 않아 첫 요청이 실패한 적이 있다
+      connect-timeout: 2s
       # Lettuce는 커넥션 하나를 여러 스레드가 공유하며 명령을 파이프라인으로 보낸다(스레드 안전).
       # 풀을 켜면 commons-pool2 의존성이 더 필요하고, 우리 사용 패턴(짧은 GET/SET)에서는 이득이 없다
       lettuce:

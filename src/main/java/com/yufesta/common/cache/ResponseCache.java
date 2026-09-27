@@ -83,6 +83,24 @@ public class ResponseCache {
         return fresh;
     }
 
+    /**
+     * 기동 직후 커넥션을 미리 맺는다.
+     * <p>붙이지 않으면 태스크가 새로 뜬 뒤 첫 한두 요청이 연결 수립(DNS 조회 + TCP)에 걸려 타임아웃되고
+     * 캐시를 건너뛴다(2026-09-27 배포에서 실제로 관측). 사용자 요청이 그 비용을 내지 않게 기동 시 한 번 붙여 둔다.
+     * 실패해도 기동을 막지 않는다. Redis가 늦게 떠도 다음 요청에서 다시 붙는다
+     */
+    public void warmUp() {
+        if (!properties.enabled()) {
+            return;
+        }
+        try {
+            redis.hasKey(fullKey("warmup"));
+            log.info("응답 캐시 연결 준비 완료");
+        } catch (RuntimeException exception) {
+            logFailure("warmup", "-", exception);
+        }
+    }
+
     /** 운영자 쓰기 직후 해당 키를 즉시 버린다. TTL을 기다리지 않게 하는 유일한 방법 */
     public void evict(String... keys) {
         if (!properties.enabled()) {

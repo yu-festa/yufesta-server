@@ -139,6 +139,18 @@ class ResponseCacheTest {
         verify(redis).delete(FULL_KEY);
     }
 
+    @Test
+    void 기동_예열은_연결을_맺어_보고_실패해도_예외를_던지지_않는다() {
+        when(redis.hasKey("yufesta:v1:warmup")).thenThrow(new RedisConnectionFailureException("연결 실패"));
+
+        cache.warmUp();   // 예외가 새면 기동이 막힌다
+
+        verify(redis).hasKey("yufesta:v1:warmup");
+        // 캐시를 끄면 아예 건드리지 않는다
+        new ResponseCache(redis, properties(false), clock).warmUp();
+        verify(redis, org.mockito.Mockito.times(1)).hasKey(anyString());
+    }
+
     private static CacheProperties properties(boolean enabled) {
         return new CacheProperties(enabled, "v1", Duration.ofSeconds(30), Duration.ofSeconds(3));
     }

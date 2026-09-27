@@ -83,12 +83,19 @@ jobs:
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment --no-cli-pager >/dev/null
           aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
 
-      # 서킷 브레이커가 롤백했다면 services-stable은 통과해도 새 코드가 아니다. 배포 상태까지 확인
+      # 서킷 브레이커가 롤백했다면 services-stable은 통과해도 새 코드가 아니다. 배포 상태까지 확인.
+      # services-stable 웨이터는 rolloutState가 COMPLETED로 바뀌기 몇 초 전에 통과할 수 있어(2026-09-27 오탐)
+      # 한 번만 보고 실패로 단정하지 않고 잠깐 더 기다린다. FAILED는 롤백이므로 즉시 중단한다
       - name: 배포 결과 확인
         run: |
-          STATE=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
-            --query 'services[0].deployments[0].rolloutState' --output text)
-          echo "rolloutState=$STATE"
+          for i in $(seq 1 12); do
+            STATE=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query 'services[0].deployments[0].rolloutState' --output text)
+            echo "rolloutState=$STATE ($i/12)"
+            if [ "$STATE" = "COMPLETED" ]; then break; fi
+            if [ "$STATE" = "FAILED" ]; then echo "서킷 브레이커가 롤백했다" && exit 1; fi
+            sleep 10
+          done
           test "$STATE" = "COMPLETED"
           for i in $(seq 1 10); do
             curl -fsS "$HEALTH_URL" && exit 0
