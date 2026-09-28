@@ -46,6 +46,12 @@ app:
     # 락 제한(3초)보다 넉넉한 10초로 충분하다. 이 값이 곧 최악의 낡음(신선 기간 + 10초)을 정한다.
     # 타임테이블 응답에는 serverNow와 isLive가 들어가므로 이 상한을 짧게 유지하는 것이 중요하다
     stale-window: 10s
+  moderation:
+    openai:
+      # 키가 없거나 OpenAI 호출이 실패하면 정규식·금칙어 통과 글을 SKIPPED로 저장한다.
+      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      timeout: 2s
   storage:
     # 이미지 저장소. local(기본, ./uploads에 저장하고 /uploads/**로 서빙) | s3(운영, 태스크 역할 자격 증명)
     type: ${IMAGE_STORAGE:local}

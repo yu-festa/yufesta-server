@@ -39,7 +39,9 @@ public interface LostItemApi {
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size
     );
 
-    @Operation(summary = "분실물 작성", description = "로그인 사용자가 분실물 또는 습득물 게시글을 작성한다. CSRF 토큰이 필요하다. FR-LF-02")
+    @Operation(summary = "분실물 작성", description = "로그인 사용자가 콘텐츠 필터와 회원별 속도 제한을 거쳐 분실물 또는 습득물 게시글을 작성한다. CSRF 토큰이 필요하다. FR-LF-02~04")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "CONTENT_NOT_ALLOWED")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "RATE_LIMITED")
     @PostMapping
     ResponseEntity<ApiResponse<LostItemResponse>> createLostItem(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,

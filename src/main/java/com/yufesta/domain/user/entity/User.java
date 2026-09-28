@@ -48,8 +48,11 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 10)
     private UserRole role;
 
-    @Column(length = 30)
+    @Column(length = 100)
     private String displayName;
+
+    @Column(length = 2048)
+    private String profileImageUrl;
 
     private LocalDateTime matchingBlockedAt;
 
@@ -58,16 +61,31 @@ public class User extends BaseTimeEntity {
     private LocalDateTime lastLoginAt;
 
     @Builder
-    private User(OAuthProvider provider, String providerUserId, UserRole role, LocalDateTime loginAt) {
+    private User(
+            OAuthProvider provider,
+            String providerUserId,
+            UserRole role,
+            String displayName,
+            String profileImageUrl,
+            LocalDateTime loginAt
+    ) {
         this.provider = provider;
         this.providerUserId = providerUserId;
         this.role = role;
+        this.displayName = displayName;
+        this.profileImageUrl = profileImageUrl;
         this.lastLoginAt = loginAt;
     }
 
     // 시각은 호출 측이 Clock으로 구해 넘긴다. 엔티티는 시계를 모른다
     public void recordLogin(LocalDateTime now) {
         this.lastLoginAt = now;
+    }
+
+    /** 로그인 제공자가 반환한 현재 표시 이름과 프로필 사진으로 갱신한다. */
+    public void updateSocialProfile(String displayName, String profileImageUrl) {
+        this.displayName = displayName;
+        this.profileImageUrl = profileImageUrl;
     }
 
     public boolean isMatchingBlocked() {

@@ -1,5 +1,6 @@
 package com.yufesta.domain.user.service;
 
+import com.yufesta.common.security.oauth2.OAuth2UserProfile;
 import com.yufesta.domain.appsetting.service.AdminAllowlistService;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
@@ -36,17 +37,20 @@ public class UserLoginService {
      * <p>역할은 최초 로그인 시 admin.allowlist 포함 여부로만 정해진다.
      */
     @Transactional
-    public User login(OAuthProvider provider, String providerUserId) {
+    public User login(OAuthProvider provider, OAuth2UserProfile profile) {
         LocalDateTime now = LocalDateTime.now(clock);
-        return userRepository.findByProviderAndProviderUserId(provider, providerUserId)
+        return userRepository.findByProviderAndProviderUserId(provider, profile.providerUserId())
                 .map(user -> {
                     user.recordLogin(now);
+                    user.updateSocialProfile(profile.displayName(), profile.profileImageUrl());
                     return user;
                 })
                 .orElseGet(() -> userRepository.save(User.builder()
                         .provider(provider)
-                        .providerUserId(providerUserId)
-                        .role(resolveRole(provider, providerUserId))
+                        .providerUserId(profile.providerUserId())
+                        .role(resolveRole(provider, profile.providerUserId()))
+                        .displayName(profile.displayName())
+                        .profileImageUrl(profile.profileImageUrl())
                         .loginAt(now)
                         .build()));
     }

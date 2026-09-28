@@ -3,6 +3,7 @@ package com.yufesta.domain.lostitem.comment.service;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.lostitem.comment.dto.request.CreateLostItemCommentRequest;
 import com.yufesta.domain.lostitem.comment.dto.request.UpdateLostItemCommentVisibilityRequest;
 import com.yufesta.domain.lostitem.comment.dto.response.LostItemCommentResponse;
@@ -12,6 +13,7 @@ import com.yufesta.domain.lostitem.comment.repository.LostItemCommentAliasReposi
 import com.yufesta.domain.lostitem.comment.repository.LostItemCommentRepository;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
@@ -35,19 +37,22 @@ public class LostItemCommentService {
     private final LostItemCommentAliasRepository aliasRepository;
     private final UserService userService;
     private final NicknameGenerator nicknameGenerator;
+    private final ContentModerationService contentModerationService;
 
     public LostItemCommentService(
             LostItemRepository lostItemRepository,
             LostItemCommentRepository commentRepository,
             LostItemCommentAliasRepository aliasRepository,
             UserService userService,
-            NicknameGenerator nicknameGenerator
+            NicknameGenerator nicknameGenerator,
+            ContentModerationService contentModerationService
     ) {
         this.lostItemRepository = lostItemRepository;
         this.commentRepository = commentRepository;
         this.aliasRepository = aliasRepository;
         this.userService = userService;
         this.nicknameGenerator = nicknameGenerator;
+        this.contentModerationService = contentModerationService;
     }
 
     /** 노출 중인 분실물 글의 최상위 댓글과 답글을 작성 시각순으로 반환한다. */
@@ -70,7 +75,8 @@ public class LostItemCommentService {
     public LostItemCommentResponse create(Long userId, Long lostItemId, CreateLostItemCommentRequest request) {
         LostItem lostItem = getVisibleLostItem(lostItemId);
         User author = requireUser(userId);
-        LostItemComment comment = saveComment(lostItem, null, author, request);
+        ModeratedContent content = moderate(request.content());
+        LostItemComment comment = saveComment(lostItem, null, author, content);
         return toResponse(comment, userId, lostItem.getAuthor() == null ? null : lostItem.getAuthor().getId(), List.of());
     }
 
@@ -88,7 +94,8 @@ public class LostItemCommentService {
             throw new CustomException(ErrorCode.LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED);
         }
         User author = requireUser(userId);
-        LostItemComment reply = saveComment(lostItem, parent, author, request);
+        ModeratedContent content = moderate(request.content());
+        LostItemComment reply = saveComment(lostItem, parent, author, content);
         return toResponse(reply, userId, lostItem.getAuthor() == null ? null : lostItem.getAuthor().getId(), List.of());
     }
 
@@ -156,16 +163,23 @@ public class LostItemCommentService {
             LostItem lostItem,
             LostItemComment parent,
             User author,
-            CreateLostItemCommentRequest request
+            ModeratedContent content
     ) {
         LostItemComment comment = LostItemComment.builder()
                 .lostItem(lostItem)
                 .parent(parent)
                 .author(author)
-                .content(request.content().trim())
+                .content(content.text())
                 .displayName(getOrCreateAlias(lostItem, author))
+                .moderationStatus(content.moderationStatus())
                 .build();
         return commentRepository.save(comment);
+    }
+
+    private ModeratedContent moderate(String rawContent) {
+        String content = rawContent.trim();
+        contentModerationService.validateLocal(content);
+        return new ModeratedContent(content, contentModerationService.moderateByLlm(content));
     }
 
     private String getOrCreateAlias(LostItem lostItem, User user) {
@@ -237,5 +251,8 @@ public class LostItemCommentService {
         if (userId == null) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
+    }
+
+    private record ModeratedContent(String text, ModerationStatus moderationStatus) {
     }
 }

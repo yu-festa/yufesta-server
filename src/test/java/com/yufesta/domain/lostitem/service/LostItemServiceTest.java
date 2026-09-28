@@ -3,12 +3,15 @@ package com.yufesta.domain.lostitem.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.common.ratelimit.LostItemRateLimiter;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.lostitem.dto.request.CreateOfficialLostItemRequest;
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
@@ -18,6 +21,7 @@ import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.enums.LostItemKind;
 import com.yufesta.domain.lostitem.enums.LostItemStatus;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.time.LocalDateTime;
@@ -43,6 +47,12 @@ class LostItemServiceTest {
     @Mock
     private NicknameGenerator nicknameGenerator;
 
+    @Mock
+    private ContentModerationService contentModerationService;
+
+    @Mock
+    private LostItemRateLimiter lostItemRateLimiter;
+
     @InjectMocks
     private LostItemService lostItemService;
 
@@ -61,8 +71,11 @@ class LostItemServiceTest {
     @Test
     void 로그인_사용자가_분실물_게시글을_작성한다() {
         User user = org.mockito.Mockito.mock(User.class);
+        when(user.getId()).thenReturn(7L);
         when(userService.getUser(7L)).thenReturn(user);
         when(nicknameGenerator.generate()).thenReturn("씩씩한 판다");
+        when(contentModerationService.moderateByLlm("검은색 카드지갑\n중앙도서관 앞"))
+                .thenReturn(ModerationStatus.PASSED);
         when(lostItemRepository.save(any(LostItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LostItemResponse result = lostItemService.create(7L, request());
@@ -82,6 +95,41 @@ class LostItemServiceTest {
                         LostItem::isHidden
                 )
                 .containsExactly(LostItemKind.FOUND, LostItemStatus.OPEN, user, false, ModerationStatus.PASSED, false);
+        verify(contentModerationService).validateLocal("검은색 카드지갑");
+        verify(contentModerationService).validateLocal("중앙도서관 앞");
+        verify(lostItemRateLimiter).check(7L);
+    }
+
+    @Test
+    void 모더레이션_API가_실패한_게시글은_SKIPPED로_저장한다() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(user.getId()).thenReturn(7L);
+        when(userService.getUser(7L)).thenReturn(user);
+        when(nicknameGenerator.generate()).thenReturn("씩씩한 판다");
+        when(contentModerationService.moderateByLlm("검은색 카드지갑\n중앙도서관 앞"))
+                .thenReturn(ModerationStatus.SKIPPED);
+        when(lostItemRepository.save(any(LostItem.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        lostItemService.create(7L, request());
+
+        ArgumentCaptor<LostItem> captor = ArgumentCaptor.forClass(LostItem.class);
+        verify(lostItemRepository).save(captor.capture());
+        assertThat(captor.getValue().getModerationStatus()).isEqualTo(ModerationStatus.SKIPPED);
+    }
+
+    @Test
+    void 로컬_필터에_걸린_게시글은_속도_제한을_소진하거나_저장하지_않는다() {
+        User user = org.mockito.Mockito.mock(User.class);
+        when(userService.getUser(7L)).thenReturn(user);
+        doThrow(new CustomException(ErrorCode.CONTENT_NOT_ALLOWED))
+                .when(contentModerationService).validateLocal("검은색 카드지갑");
+
+        assertThatThrownBy(() -> lostItemService.create(7L, request()))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.CONTENT_NOT_ALLOWED);
+        verify(lostItemRateLimiter, never()).check(any());
+        verify(lostItemRepository, never()).save(any());
     }
 
     @Test
@@ -139,6 +187,8 @@ class LostItemServiceTest {
         assertThat(captor.getValue())
                 .extracting(LostItem::isOfficial, LostItem::getAuthor, LostItem::getModerationStatus)
                 .containsExactly(true, admin, ModerationStatus.PASSED);
+        verify(contentModerationService, never()).validateLocal(any());
+        verify(lostItemRateLimiter, never()).check(any());
     }
 
     @Test

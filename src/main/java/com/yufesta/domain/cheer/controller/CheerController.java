@@ -1,6 +1,7 @@
 package com.yufesta.domain.cheer.controller;
 
 import com.yufesta.common.response.ApiResponse;
+import com.yufesta.common.ratelimit.ClientIpResolver;
 import com.yufesta.domain.cheer.controller.api.CheerApi;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
@@ -19,10 +20,16 @@ public class CheerController implements CheerApi {
 
     private final CheerService cheerService;
     private final AnonymousKeyService anonymousKeyService;
+    private final ClientIpResolver clientIpResolver;
 
-    public CheerController(CheerService cheerService, AnonymousKeyService anonymousKeyService) {
+    public CheerController(
+            CheerService cheerService,
+            AnonymousKeyService anonymousKeyService,
+            ClientIpResolver clientIpResolver
+    ) {
         this.cheerService = cheerService;
         this.anonymousKeyService = anonymousKeyService;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Override
@@ -38,7 +45,7 @@ public class CheerController implements CheerApi {
             CreateCheerRequest cheerRequest
     ) {
         String anonymousKey = anonymousKeyService.resolve(request, response);
-        CheerResponse cheer = cheerService.create(anonymousKey, cheerRequest);
+        CheerResponse cheer = cheerService.create(anonymousKey, clientIpResolver.resolve(request), cheerRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "응원 메시지를 등록했습니다.", cheer));
     }

@@ -82,7 +82,8 @@ public class LostItem extends BaseTimeEntity {
             String placeText,
             LocalDateTime occurredAt,
             String displayName,
-            User author
+            User author,
+            ModerationStatus moderationStatus
     ) {
         this.kind = kind;
         this.description = description;
@@ -92,7 +93,7 @@ public class LostItem extends BaseTimeEntity {
         this.displayName = displayName;
         this.author = author;
         this.official = false;
-        this.moderationStatus = ModerationStatus.PASSED;
+        this.moderationStatus = moderationStatus == null ? ModerationStatus.PASSED : moderationStatus;
         this.reportCount = 0;
         this.hidden = false;
     }
@@ -110,7 +111,8 @@ public class LostItem extends BaseTimeEntity {
                 placeText,
                 occurredAt,
                 OFFICIAL_DISPLAY_NAME,
-                author
+                author,
+                ModerationStatus.PASSED
         );
         lostItem.official = true;
         return lostItem;

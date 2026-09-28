@@ -1,5 +1,5 @@
 -- ============================================================
--- YU FESTA ERD v1.6 (SRS v1.9 기준) — MySQL 8.x
+-- YU FESTA ERD v1.7 (SRS v1.10 기준) — MySQL 8.x
 -- ERDCloud: 가져오기 > SQL > MySQL 로 import. 컬럼 COMMENT = 논리명(한글)
 -- 규칙: PK는 BIGINT UNSIGNED AUTO_INCREMENT, 열거형은 VARCHAR + 허용값 주석(값은 대문자 enum 이름),
 --       불리언은 TINYINT(1), 시각은 DATETIME(KST), 모든 테이블에 created_at·updated_at, 문자셋 utf8mb4
@@ -10,6 +10,8 @@
 -- v1.3: timetable_slots.slot_type에 EVENT 추가(개회식·연설·가요제), 타임테이블 초기 데이터(무대 1·공연 13, V3)
 -- v1.4: places.category를 STAGE/TOILET/DELIVERY_ZONE으로 정리하고 DELIVERY_ZONE 길이에 맞춰 VARCHAR(20)으로 확장(V5)
 -- v1.5: 분실물 게시별 댓글·1단계 답글, 글 단위 익명 별칭, 댓글 신고 대상 추가(V6)
+-- v1.6: 분실물 게시글당 이미지 1장과 리사이즈·썸네일 URL 추가(V7)
+-- v1.7: 소셜 로그인 표시 이름과 프로필 사진 URL 저장(V8)
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -22,7 +24,8 @@ CREATE TABLE `users` (
   `provider`            VARCHAR(10)     NOT NULL COMMENT '로그인 제공자(KAKAO/GOOGLE)',
   `provider_user_id`    VARCHAR(191)    NOT NULL COMMENT '제공자 계정 식별자',
   `role`                VARCHAR(10)     NOT NULL DEFAULT 'USER' COMMENT '역할(USER/STAFF/OWNER)',
-  `display_name`        VARCHAR(30)     NULL     COMMENT '운영자 표시 이름(운영자만)',
+  `display_name`        VARCHAR(100)    NULL     COMMENT '소셜 로그인 표시 이름',
+  `profile_image_url`   VARCHAR(2048)   NULL     COMMENT '소셜 로그인 프로필 이미지 URL',
   `matching_blocked_at` DATETIME        NULL     COMMENT '매칭 제외 시각',
   `write_banned_at`     DATETIME        NULL     COMMENT '작성 금지 시각',
   `last_login_at`       DATETIME        NULL     COMMENT '최근 로그인 시각',

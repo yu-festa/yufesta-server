@@ -43,7 +43,7 @@ class OAuth2LoginSuccessHandlerTest {
     void setUp() {
         handler = new OAuth2LoginSuccessHandler(
                 userLoginService,
-                new OAuth2ProviderUserIdExtractor(),
+                new OAuth2UserProfileExtractor(),
                 jwtTokenProvider,
                 authCookieService,
                 "http://localhost:3000/"
@@ -54,7 +54,7 @@ class OAuth2LoginSuccessHandlerTest {
     void 로그인_처리_후_쿠키를_발급하고_프론트의_원래_화면으로_보낸다() throws Exception {
         User user = User.builder().provider(OAuthProvider.KAKAO).providerUserId("12345").role(UserRole.USER).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build();
         ReflectionTestUtils.setField(user, "id", 7L);
-        when(userLoginService.login(OAuthProvider.KAKAO, "12345")).thenReturn(user);
+        when(userLoginService.login(OAuthProvider.KAKAO, kakaoProfile())).thenReturn(user);
         when(jwtTokenProvider.createAccessToken(7L)).thenReturn("jwt");
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(OAuth2RedirectRequestResolver.REDIRECT_PATH_ATTRIBUTE, "/match/apply");
@@ -70,7 +70,7 @@ class OAuth2LoginSuccessHandlerTest {
     void 저장된_경로가_없으면_프론트_루트로_보낸다() throws Exception {
         User user = User.builder().provider(OAuthProvider.KAKAO).providerUserId("12345").role(UserRole.USER).loginAt(LocalDateTime.of(2026, 10, 8, 12, 0)).build();
         ReflectionTestUtils.setField(user, "id", 7L);
-        when(userLoginService.login(OAuthProvider.KAKAO, "12345")).thenReturn(user);
+        when(userLoginService.login(OAuthProvider.KAKAO, kakaoProfile())).thenReturn(user);
         when(jwtTokenProvider.createAccessToken(7L)).thenReturn("jwt");
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -82,9 +82,21 @@ class OAuth2LoginSuccessHandlerTest {
     private static OAuth2AuthenticationToken kakaoAuthentication(Long kakaoId) {
         DefaultOAuth2User principal = new DefaultOAuth2User(
                 List.of(new SimpleGrantedAuthority("OAUTH2_USER")),
-                Map.of("id", kakaoId),
+                Map.of(
+                        "id", kakaoId,
+                        "kakao_account", Map.of(
+                                "profile", Map.of(
+                                        "nickname", "카카오 사용자",
+                                        "profile_image_url", "https://k.kakaocdn.net/profile.jpg"
+                                )
+                        )
+                ),
                 "id"
         );
         return new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "kakao");
+    }
+
+    private static OAuth2UserProfile kakaoProfile() {
+        return new OAuth2UserProfile("12345", "카카오 사용자", "https://k.kakaocdn.net/profile.jpg");
     }
 }

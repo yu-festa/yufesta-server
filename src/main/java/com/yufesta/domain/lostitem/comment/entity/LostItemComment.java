@@ -70,14 +70,15 @@ public class LostItemComment extends BaseTimeEntity {
             LostItemComment parent,
             User author,
             String content,
-            String displayName
+            String displayName,
+            ModerationStatus moderationStatus
     ) {
         this.lostItem = lostItem;
         this.parent = parent;
         this.author = author;
         this.content = content;
         this.displayName = displayName;
-        this.moderationStatus = ModerationStatus.PASSED;
+        this.moderationStatus = moderationStatus == null ? ModerationStatus.PASSED : moderationStatus;
         this.reportCount = 0;
         this.hidden = false;
         this.deleted = false;

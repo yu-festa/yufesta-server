@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.lostitem.comment.dto.request.CreateLostItemCommentRequest;
 import com.yufesta.domain.lostitem.comment.dto.response.LostItemCommentResponse;
 import com.yufesta.domain.lostitem.comment.service.LostItemCommentService;
@@ -51,6 +53,19 @@ class LostItemCommentControllerTest extends ControllerTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
                 .andExpect(jsonPath("$.message").value("댓글을 등록했습니다."));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 콘텐츠_필터에_걸린_댓글은_400을_반환한다() throws Exception {
+        when(lostItemCommentService.create(eq(7L), eq(1L), any(CreateLostItemCommentRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.CONTENT_NOT_ALLOWED));
+
+        mockMvc.perform(post("/api/v1/lost-items/1/comments").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\": \"010-1234-5678\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CONTENT_NOT_ALLOWED"));
     }
 
     @Test

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yufesta.common.ratelimit.ClientIpResolver;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.service.AnonymousKeyService;
@@ -30,6 +31,9 @@ class CheerControllerTest extends ControllerTestSupport {
     @MockitoBean
     private AnonymousKeyService anonymousKeyService;
 
+    @MockitoBean
+    private ClientIpResolver clientIpResolver;
+
     @Test
     void 비로그인_사용자가_응원_메시지를_조회한다() throws Exception {
         when(cheerService.getCheers(null, 20)).thenReturn(List.of(response(false)));
@@ -44,7 +48,8 @@ class CheerControllerTest extends ControllerTestSupport {
     @Test
     void 비로그인_사용자가_익명_키를_발급받아_응원_메시지를_작성한다() throws Exception {
         when(anonymousKeyService.resolve(any(), any())).thenReturn("anon-key");
-        when(cheerService.create(eq("anon-key"), any(CreateCheerRequest.class))).thenReturn(response(true));
+        when(clientIpResolver.resolve(any())).thenReturn("203.0.113.10");
+        when(cheerService.create(eq("anon-key"), eq("203.0.113.10"), any(CreateCheerRequest.class))).thenReturn(response(true));
 
         mockMvc.perform(post("/api/v1/cheers").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

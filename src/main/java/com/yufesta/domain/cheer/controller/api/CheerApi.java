@@ -31,7 +31,9 @@ public interface CheerApi {
             @Parameter(description = "가져올 개수(1~50)") @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size
     );
 
-    @Operation(summary = "응원 메시지 작성", description = "로그인 없이 작성한다. 최초 작성 시 HttpOnly 익명 키 쿠키를 발급한다. CSRF 토큰이 필요하다. FR-CH-02")
+    @Operation(summary = "응원 메시지 작성", description = "로그인 없이 작성한다. 개인정보·금칙어·모더레이션 검사와 익명 키/IP 속도 제한을 적용한다. 최초 작성 시 HttpOnly 익명 키 쿠키를 발급한다. CSRF 토큰이 필요하다. FR-CH-02, FR-CH-03")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "CONTENT_NOT_ALLOWED")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "RATE_LIMITED")
     @PostMapping
     ResponseEntity<ApiResponse<CheerResponse>> createCheer(
             @Parameter(hidden = true) HttpServletRequest request,

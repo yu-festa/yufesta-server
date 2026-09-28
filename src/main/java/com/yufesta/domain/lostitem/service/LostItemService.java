@@ -3,12 +3,15 @@ package com.yufesta.domain.lostitem.service;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.common.ratelimit.LostItemRateLimiter;
+import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.lostitem.dto.request.CreateOfficialLostItemRequest;
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
 import com.yufesta.domain.lostitem.dto.request.UpdateLostItemVisibilityRequest;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
@@ -25,15 +28,21 @@ public class LostItemService {
     private final LostItemRepository lostItemRepository;
     private final UserService userService;
     private final NicknameGenerator nicknameGenerator;
+    private final ContentModerationService contentModerationService;
+    private final LostItemRateLimiter lostItemRateLimiter;
 
     public LostItemService(
             LostItemRepository lostItemRepository,
             UserService userService,
-            NicknameGenerator nicknameGenerator
+            NicknameGenerator nicknameGenerator,
+            ContentModerationService contentModerationService,
+            LostItemRateLimiter lostItemRateLimiter
     ) {
         this.lostItemRepository = lostItemRepository;
         this.userService = userService;
         this.nicknameGenerator = nicknameGenerator;
+        this.contentModerationService = contentModerationService;
+        this.lostItemRateLimiter = lostItemRateLimiter;
     }
 
     /** 숨김 처리되지 않은 분실물 게시글을 최신순으로 조회한다(FR-LF-01). */
@@ -51,13 +60,20 @@ public class LostItemService {
     @Transactional
     public LostItemResponse create(Long userId, CreateLostItemRequest request) {
         User user = requireUser(userId);
+        String description = request.description().trim();
+        String placeText = request.placeText().trim();
+        contentModerationService.validateLocal(description);
+        contentModerationService.validateLocal(placeText);
+        lostItemRateLimiter.check(user.getId());
+        ModerationStatus moderationStatus = contentModerationService.moderateByLlm(description + "\n" + placeText);
         LostItem lostItem = LostItem.builder()
                 .kind(request.kind())
-                .description(request.description().trim())
-                .placeText(request.placeText().trim())
+                .description(description)
+                .placeText(placeText)
                 .occurredAt(request.occurredAt())
                 .displayName(nicknameGenerator.generate())
                 .author(user)
+                .moderationStatus(moderationStatus)
                 .build();
         return LostItemResponse.from(lostItemRepository.save(lostItem));
     }

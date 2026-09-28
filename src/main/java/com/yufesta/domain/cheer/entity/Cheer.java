@@ -46,11 +46,11 @@ public class Cheer extends BaseTimeEntity {
     private boolean hidden;
 
     @Builder
-    private Cheer(String content, String displayName, String writerKeyHash) {
+    private Cheer(String content, String displayName, String writerKeyHash, ModerationStatus moderationStatus) {
         this.content = content;
         this.displayName = displayName;
         this.writerKeyHash = writerKeyHash;
-        this.moderationStatus = ModerationStatus.PASSED;
+        this.moderationStatus = moderationStatus == null ? ModerationStatus.PASSED : moderationStatus;
         this.reportCount = 0;
         this.hidden = false;
     }

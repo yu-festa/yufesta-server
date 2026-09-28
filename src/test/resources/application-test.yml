@@ -23,12 +23,13 @@ spring:
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             client-name: Kakao
+            scope: profile_nickname, profile_image
           google:
             client-id: test-google-client-id
             client-secret: test-google-client-secret
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope: openid
+            scope: openid, profile
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize

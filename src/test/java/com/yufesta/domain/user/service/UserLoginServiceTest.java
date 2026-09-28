@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.security.oauth2.OAuth2UserProfile;
 import com.yufesta.domain.appsetting.service.AdminAllowlistService;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
@@ -46,10 +47,12 @@ class UserLoginServiceTest {
         when(adminAllowlistService.contains(OAuthProvider.KAKAO, "12345")).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User user = userLoginService.login(OAuthProvider.KAKAO, "12345");
+        User user = userLoginService.login(OAuthProvider.KAKAO, kakaoProfile());
 
         assertThat(user.getRole()).isEqualTo(UserRole.STAFF);
         assertThat(user.getLastLoginAt()).isEqualTo(NOW);
+        assertThat(user.getDisplayName()).isEqualTo("카카오 사용자");
+        assertThat(user.getProfileImageUrl()).isEqualTo("https://k.kakaocdn.net/profile.jpg");
     }
 
     @Test
@@ -59,9 +62,10 @@ class UserLoginServiceTest {
         when(adminAllowlistService.contains(OAuthProvider.GOOGLE, "google-user")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User user = userLoginService.login(OAuthProvider.GOOGLE, "google-user");
+        User user = userLoginService.login(OAuthProvider.GOOGLE, googleProfile());
 
         assertThat(user.getRole()).isEqualTo(UserRole.USER);
+        assertThat(user.getDisplayName()).isEqualTo("Google User");
     }
 
     @Test
@@ -70,15 +74,27 @@ class UserLoginServiceTest {
                 .provider(OAuthProvider.KAKAO)
                 .providerUserId("12345")
                 .role(UserRole.USER)
+                .displayName("이전 이름")
+                .profileImageUrl("https://old.example/profile.jpg")
                 .loginAt(NOW.minusDays(3))
                 .build();
         when(userRepository.findByProviderAndProviderUserId(OAuthProvider.KAKAO, "12345"))
                 .thenReturn(Optional.of(existing));
 
-        User user = userLoginService.login(OAuthProvider.KAKAO, "12345");
+        User user = userLoginService.login(OAuthProvider.KAKAO, kakaoProfile());
 
         assertThat(user).isSameAs(existing);
         assertThat(user.getRole()).isEqualTo(UserRole.USER);
         assertThat(user.getLastLoginAt()).isEqualTo(NOW);
+        assertThat(user.getDisplayName()).isEqualTo("카카오 사용자");
+        assertThat(user.getProfileImageUrl()).isEqualTo("https://k.kakaocdn.net/profile.jpg");
+    }
+
+    private static OAuth2UserProfile kakaoProfile() {
+        return new OAuth2UserProfile("12345", "카카오 사용자", "https://k.kakaocdn.net/profile.jpg");
+    }
+
+    private static OAuth2UserProfile googleProfile() {
+        return new OAuth2UserProfile("google-user", "Google User", "https://lh3.googleusercontent.com/profile");
     }
 }

@@ -7,7 +7,7 @@ import com.yufesta.common.security.jwt.JwtTokenProvider;
 import com.yufesta.common.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.yufesta.common.security.oauth2.OAuth2LoginFailureHandler;
 import com.yufesta.common.security.oauth2.OAuth2LoginSuccessHandler;
-import com.yufesta.common.security.oauth2.OAuth2ProviderUserIdExtractor;
+import com.yufesta.common.security.oauth2.OAuth2UserProfileExtractor;
 import com.yufesta.common.security.oauth2.OAuth2RedirectRequestResolver;
 import com.yufesta.domain.user.repository.UserRepository;
 import com.yufesta.domain.user.service.UserLoginService;
@@ -57,7 +57,7 @@ public class SecurityConfig {
             HttpSecurity http,
             ClientRegistrationRepository clientRegistrationRepository,
             UserLoginService userLoginService,
-            OAuth2ProviderUserIdExtractor providerUserIdExtractor,
+            OAuth2UserProfileExtractor userProfileExtractor,
             JwtTokenProvider jwtTokenProvider,
             AuthCookieService authCookieService,
             UserRepository userRepository,
@@ -84,7 +84,7 @@ public class SecurityConfig {
         });
         OAuth2LoginSuccessHandler successHandler = new OAuth2LoginSuccessHandler(
                 userLoginService,
-                providerUserIdExtractor,
+                userProfileExtractor,
                 jwtTokenProvider,
                 authCookieService,
                 authProperties.frontendUrl()

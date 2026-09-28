@@ -120,7 +120,11 @@ class SecurityConfigTest {
 
     @Test
     void 응원_메시지_작성과_삭제는_비로그인으로_허용된다() throws Exception {
-        org.mockito.Mockito.when(cheerService.create(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        org.mockito.Mockito.when(cheerService.create(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any()
+                ))
                 .thenReturn(CheerResponse.builder().id(1L).content("축제 파이팅!").displayName("신난 수달").mine(true).build());
 
         mockMvc.perform(post("/api/v1/cheers").with(csrf())

@@ -27,13 +27,19 @@ class AuthControllerTest extends ControllerTestSupport {
 
     @Test
     @WithMockLoginUser(id = 7L, role = UserRole.STAFF)
-    void 로그인_사용자의_역할을_반환한다() throws Exception {
-        when(authService.getMe(7L)).thenReturn(AuthMeResponse.of(UserRole.STAFF));
+    void 로그인_사용자의_역할과_소셜_프로필을_반환한다() throws Exception {
+        when(authService.getMe(7L)).thenReturn(AuthMeResponse.builder()
+                .role(UserRole.STAFF)
+                .displayName("카카오 사용자")
+                .profileImageUrl("https://k.kakaocdn.net/profile.jpg")
+                .build());
 
         mockMvc.perform(get("/api/v1/auth/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.data.role").value("STAFF"))
+                .andExpect(jsonPath("$.data.displayName").value("카카오 사용자"))
+                .andExpect(jsonPath("$.data.profileImageUrl").value("https://k.kakaocdn.net/profile.jpg"))
                 .andExpect(jsonPath("$.data.userId").doesNotExist());
     }
 

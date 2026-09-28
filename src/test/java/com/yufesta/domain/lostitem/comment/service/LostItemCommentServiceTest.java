@@ -3,12 +3,15 @@ package com.yufesta.domain.lostitem.comment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.lostitem.comment.dto.request.CreateLostItemCommentRequest;
 import com.yufesta.domain.lostitem.comment.dto.request.UpdateLostItemCommentVisibilityRequest;
 import com.yufesta.domain.lostitem.comment.dto.response.LostItemCommentResponse;
@@ -19,6 +22,7 @@ import com.yufesta.domain.lostitem.comment.repository.LostItemCommentRepository;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.enums.LostItemKind;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.enums.OAuthProvider;
 import com.yufesta.domain.user.enums.UserRole;
@@ -51,6 +55,9 @@ class LostItemCommentServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private ContentModerationService contentModerationService;
 
     @InjectMocks
     private LostItemCommentService lostItemCommentService;
@@ -87,6 +94,8 @@ class LostItemCommentServiceTest {
         when(aliasRepository.findByLostItem_IdAndUser_Id(1L, 8L)).thenReturn(Optional.empty());
         when(aliasRepository.existsByLostItem_IdAndDisplayName(1L, "씩씩한 판다")).thenReturn(false);
         when(nicknameGenerator.generate()).thenReturn("씩씩한 판다");
+        when(contentModerationService.moderateByLlm("안내소에 맡겼어요."))
+                .thenReturn(ModerationStatus.PASSED);
         when(aliasRepository.save(any(LostItemCommentAlias.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(commentRepository.save(any(LostItemComment.class))).thenAnswer(invocation -> {
             LostItemComment comment = invocation.getArgument(0);
@@ -104,6 +113,7 @@ class LostItemCommentServiceTest {
         verify(commentRepository).save(captor.capture());
         assertThat(captor.getValue()).extracting(LostItemComment::isTopLevel, LostItemComment::getAuthor)
                 .containsExactly(true, author);
+        verify(contentModerationService).validateLocal("안내소에 맡겼어요.");
     }
 
     @Test
@@ -115,6 +125,8 @@ class LostItemCommentServiceTest {
         when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
         when(userService.getUser(8L)).thenReturn(author);
         when(aliasRepository.findByLostItem_IdAndUser_Id(1L, 8L)).thenReturn(Optional.of(alias));
+        when(contentModerationService.moderateByLlm("확인했습니다."))
+                .thenReturn(ModerationStatus.PASSED);
         when(commentRepository.save(any(LostItemComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         LostItemCommentResponse result = lostItemCommentService.create(8L, 1L, request("확인했습니다."));
@@ -134,6 +146,8 @@ class LostItemCommentServiceTest {
         when(aliasRepository.findByLostItem_IdAndUser_Id(1L, 8L)).thenReturn(Optional.empty());
         when(aliasRepository.existsByLostItem_IdAndDisplayName(1L, "씩씩한 판다")).thenReturn(false);
         when(nicknameGenerator.generate()).thenReturn("씩씩한 판다");
+        when(contentModerationService.moderateByLlm("감사합니다."))
+                .thenReturn(ModerationStatus.PASSED);
         when(aliasRepository.save(any(LostItemCommentAlias.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(commentRepository.save(any(LostItemComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -141,6 +155,43 @@ class LostItemCommentServiceTest {
 
         assertThat(result.parentId()).isEqualTo(10L);
         assertThat(result.content()).isEqualTo("감사합니다.");
+    }
+
+    @Test
+    void 모더레이션_API가_실패한_댓글은_SKIPPED로_저장한다() {
+        LostItem lostItem = lostItem(1L, 7L, false);
+        User author = user(8L);
+        LostItemCommentAlias alias = LostItemCommentAlias.builder()
+                .lostItem(lostItem).user(author).displayName("씩씩한 판다").build();
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+        when(userService.getUser(8L)).thenReturn(author);
+        when(aliasRepository.findByLostItem_IdAndUser_Id(1L, 8L)).thenReturn(Optional.of(alias));
+        when(contentModerationService.moderateByLlm("확인했습니다."))
+                .thenReturn(ModerationStatus.SKIPPED);
+        when(commentRepository.save(any(LostItemComment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        lostItemCommentService.create(8L, 1L, request("확인했습니다."));
+
+        ArgumentCaptor<LostItemComment> captor = ArgumentCaptor.forClass(LostItemComment.class);
+        verify(commentRepository).save(captor.capture());
+        assertThat(captor.getValue().getModerationStatus()).isEqualTo(ModerationStatus.SKIPPED);
+    }
+
+    @Test
+    void 로컬_필터에_걸린_댓글은_별칭을_만들거나_저장하지_않는다() {
+        LostItem lostItem = lostItem(1L, 7L, false);
+        User author = user(8L);
+        when(lostItemRepository.findById(1L)).thenReturn(Optional.of(lostItem));
+        when(userService.getUser(8L)).thenReturn(author);
+        doThrow(new CustomException(ErrorCode.CONTENT_NOT_ALLOWED))
+                .when(contentModerationService).validateLocal("010-1234-5678");
+
+        assertThatThrownBy(() -> lostItemCommentService.create(8L, 1L, request("010-1234-5678")))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.CONTENT_NOT_ALLOWED);
+        verify(aliasRepository, never()).save(any());
+        verify(commentRepository, never()).save(any());
     }
 
     @Test
@@ -232,6 +283,7 @@ class LostItemCommentServiceTest {
                 .author(user(authorId))
                 .content(content)
                 .displayName(displayName)
+                .moderationStatus(ModerationStatus.PASSED)
                 .build();
         ReflectionTestUtils.setField(comment, "id", id);
         ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.of(2026, 10, 2, 14, minute));

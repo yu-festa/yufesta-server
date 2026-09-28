@@ -15,14 +15,14 @@
 | 5 | `aws configure --profile yufesta` 로 키 입력(리전 `ap-northeast-2`, 출력 `json`). 기존 프로필은 건드리지 않는다 | 터미널 |
 | 6 | `export AWS_PROFILE=yufesta && aws sts get-caller-identity` → Account가 소마 계정, Arn이 `user/yufesta-deployer` | 터미널 |
 | 7 | S3 버킷 `yufesta-tfstate`(서울, 버전 관리 켬, 퍼블릭 차단). 이름이 이미 쓰이면 `yufesta-tfstate-<임의>`로 만들고 `terraform/versions.tf`·정책 JSON의 버킷 이름을 같이 바꾼다 | S3 |
-| 8 | 비밀 5개를 SSM에 넣는다(아래 명령). 값은 로컬 `.env`의 것과 같다 | 터미널 |
+| 8 | 비밀 6개를 SSM에 넣는다(아래 명령). 값은 로컬 `.env`의 것과 같다 | 터미널 |
 | 9 | 카카오·구글 개발자 콘솔에 Redirect URI `https://api.yufesta.com/login/oauth2/code/kakao`, `.../google` 추가 | 각 콘솔 |
 | 10 | 팀원에게 Vercel 커스텀 도메인 `yufesta.com` 연결 요청(Route 53에 Vercel이 알려주는 A/CNAME 레코드 추가) | Vercel |
 | 11 | `iam/*.json`이 바뀐 PR을 병합할 때마다 IAM > Policies > 각 정책 > **새 버전 생성**으로 JSON을 다시 붙여넣고 기본 버전으로 설정(예: 이미지 저장소 #93에서 S3·CloudFront 권한 추가) | IAM > Policies |
 
 ```bash
 export AWS_PROFILE=yufesta
-for KEY in JWT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+for KEY in JWT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET OPENAI_API_KEY; do
   read -rs "VALUE?$KEY: "; echo
   aws ssm put-parameter --name "/yufesta/prod/$KEY" --type SecureString --value "$VALUE" --overwrite >/dev/null
 done

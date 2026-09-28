@@ -11,6 +11,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yufesta.common.exception.CustomException;
+import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.lostitem.dto.request.CreateLostItemRequest;
 import com.yufesta.domain.lostitem.dto.response.LostItemImageResponse;
 import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
@@ -65,6 +67,25 @@ class LostItemControllerTest extends ControllerTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
                 .andExpect(jsonPath("$.data.status").value("OPEN"));
+    }
+
+    @Test
+    @WithMockLoginUser(id = 7L)
+    void 분실물_작성_속도_제한을_넘으면_429를_반환한다() throws Exception {
+        when(lostItemService.create(eq(7L), any(CreateLostItemRequest.class)))
+                .thenThrow(new CustomException(ErrorCode.RATE_LIMITED));
+
+        mockMvc.perform(post("/api/v1/lost-items").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "kind": "FOUND",
+                                  "description": "검은색 카드지갑",
+                                  "placeText": "중앙도서관 앞"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
     }
 
     @Test

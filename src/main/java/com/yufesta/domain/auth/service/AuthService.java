@@ -28,6 +28,6 @@ public class AuthService {
         if (userId == null) {
             throw new CustomException(ErrorCode.UNAUTHORIZED);
         }
-        return AuthMeResponse.of(userService.getRole(userId));
+        return AuthMeResponse.from(userService.getUser(userId));
     }
 }

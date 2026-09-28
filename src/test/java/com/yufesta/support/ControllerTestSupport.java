@@ -3,7 +3,7 @@ package com.yufesta.support;
 import com.yufesta.common.config.ClockConfig;
 import com.yufesta.common.config.CorsConfig;
 import com.yufesta.common.security.config.SecurityConfig;
-import com.yufesta.common.security.oauth2.OAuth2ProviderUserIdExtractor;
+import com.yufesta.common.security.oauth2.OAuth2UserProfileExtractor;
 import com.yufesta.domain.user.repository.UserRepository;
 import com.yufesta.domain.user.service.UserLoginService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @MockitoBean(types = {
         ClientRegistrationRepository.class,
         UserLoginService.class,
-        OAuth2ProviderUserIdExtractor.class,
+        OAuth2UserProfileExtractor.class,
         UserRepository.class
 })
 public abstract class ControllerTestSupport {

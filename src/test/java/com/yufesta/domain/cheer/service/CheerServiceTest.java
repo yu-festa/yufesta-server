@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.common.ratelimit.CheerRateLimiter;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
@@ -16,6 +17,7 @@ import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.cheer.repository.CheerRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +40,12 @@ class CheerServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private ContentModerationService contentModerationService;
+
+    @Mock
+    private CheerRateLimiter cheerRateLimiter;
 
     @InjectMocks
     private CheerService cheerService;
@@ -63,9 +71,10 @@ class CheerServiceTest {
     void 비로그인_익명_키로_응원_메시지를_작성한다() {
         when(anonymousKeyService.hash("new-key")).thenReturn("new-hash");
         when(nicknameGenerator.generate()).thenReturn("씩씩한 판다");
+        when(contentModerationService.moderateByLlm("축제 파이팅!")).thenReturn(ModerationStatus.PASSED);
         when(cheerRepository.save(any(Cheer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CheerResponse result = cheerService.create("new-key", new CreateCheerRequest("축제 파이팅!"));
+        CheerResponse result = cheerService.create("new-key", "203.0.113.10", new CreateCheerRequest("축제 파이팅!"));
 
         assertThat(result)
                 .extracting(CheerResponse::content, CheerResponse::displayName, CheerResponse::mine)
@@ -75,6 +84,7 @@ class CheerServiceTest {
         assertThat(captor.getValue())
                 .extracting(Cheer::getContent, Cheer::getDisplayName, Cheer::getWriterKeyHash, Cheer::getModerationStatus)
                 .containsExactly("축제 파이팅!", "씩씩한 판다", "new-hash", ModerationStatus.PASSED);
+        verify(cheerRateLimiter).check("new-hash", "203.0.113.10");
     }
 
     @Test

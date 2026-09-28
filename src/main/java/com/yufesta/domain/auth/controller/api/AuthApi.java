@@ -40,7 +40,7 @@ public interface AuthApi {
 
     @Operation(
             summary = "내 로그인 상태",
-            description = "로그인 사용자의 역할을 반환한다. 비로그인이면 401. 프론트 로그인 게이트용. 로그인 필요."
+            description = "로그인 사용자의 역할과 소셜 표시 이름·프로필 사진을 반환한다. 비로그인이면 401. 로그인 필요."
     )
     @GetMapping("/me")
     ApiResponse<AuthMeResponse> getMe(@Parameter(hidden = true) @AuthenticationPrincipal Long userId);

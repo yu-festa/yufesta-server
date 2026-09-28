@@ -29,7 +29,8 @@ public interface LostItemCommentApi {
             @PathVariable Long lostItemId
     );
 
-    @Operation(summary = "분실물 댓글 작성", description = "로그인 사용자가 최상위 댓글을 작성한다. CSRF 토큰이 필요하다.")
+    @Operation(summary = "분실물 댓글 작성", description = "로그인 사용자가 콘텐츠 필터를 거쳐 최상위 댓글을 작성한다. CSRF 토큰이 필요하다. FR-LF-08~09")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "CONTENT_NOT_ALLOWED")
     @PostMapping
     ResponseEntity<ApiResponse<LostItemCommentResponse>> createComment(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
@@ -37,8 +38,8 @@ public interface LostItemCommentApi {
             @Valid @RequestBody CreateLostItemCommentRequest request
     );
 
-    @Operation(summary = "분실물 답글 작성", description = "로그인 사용자가 최상위 댓글에 답글을 작성한다. 답글의 답글은 지원하지 않는다. CSRF 토큰이 필요하다.")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED")
+    @Operation(summary = "분실물 답글 작성", description = "로그인 사용자가 콘텐츠 필터를 거쳐 최상위 댓글에 답글을 작성한다. 답글의 답글은 지원하지 않는다. CSRF 토큰이 필요하다. FR-LF-08~09")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "LOST_ITEM_COMMENT_REPLY_NOT_ALLOWED, CONTENT_NOT_ALLOWED")
     @PostMapping("/{commentId}/replies")
     ResponseEntity<ApiResponse<LostItemCommentResponse>> createReply(
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,

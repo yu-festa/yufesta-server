@@ -3,12 +3,15 @@ package com.yufesta.domain.cheer.service;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.common.nickname.NicknameGenerator;
+import com.yufesta.common.ratelimit.CheerRateLimiter;
 import com.yufesta.domain.cheer.dto.request.CreateCheerRequest;
 import com.yufesta.domain.cheer.dto.request.UpdateCheerVisibilityRequest;
 import com.yufesta.domain.cheer.dto.response.AdminCheerResponse;
 import com.yufesta.domain.cheer.dto.response.CheerResponse;
 import com.yufesta.domain.cheer.entity.Cheer;
+import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.cheer.repository.CheerRepository;
+import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
@@ -23,15 +26,21 @@ public class CheerService {
     private final CheerRepository cheerRepository;
     private final AnonymousKeyService anonymousKeyService;
     private final NicknameGenerator nicknameGenerator;
+    private final ContentModerationService contentModerationService;
+    private final CheerRateLimiter cheerRateLimiter;
 
     public CheerService(
             CheerRepository cheerRepository,
             AnonymousKeyService anonymousKeyService,
-            NicknameGenerator nicknameGenerator
+            NicknameGenerator nicknameGenerator,
+            ContentModerationService contentModerationService,
+            CheerRateLimiter cheerRateLimiter
     ) {
         this.cheerRepository = cheerRepository;
         this.anonymousKeyService = anonymousKeyService;
         this.nicknameGenerator = nicknameGenerator;
+        this.contentModerationService = contentModerationService;
+        this.cheerRateLimiter = cheerRateLimiter;
     }
 
     /** 숨김 처리되지 않은 응원 메시지를 최신순으로 조회한다(FR-CH-01). */
@@ -47,12 +56,18 @@ public class CheerService {
      * 익명 키 해시와 자동 생성 닉네임으로 응원 메시지를 저장한다(FR-CH-02, FR-AN-01~03).
      */
     @Transactional
-    public CheerResponse create(String anonymousKey, CreateCheerRequest request) {
+    public CheerResponse create(String anonymousKey, String clientIp, CreateCheerRequest request) {
+        String content = request.content().trim();
+        // 명백한 개인정보·금칙어는 속도 제한을 소진시키지 않는다.
+        contentModerationService.validateLocal(content);
         String writerKeyHash = anonymousKeyService.hash(anonymousKey);
+        cheerRateLimiter.check(writerKeyHash, clientIp);
+        ModerationStatus moderationStatus = contentModerationService.moderateByLlm(content);
         Cheer cheer = Cheer.builder()
-                .content(request.content().trim())
+                .content(content)
                 .displayName(nicknameGenerator.generate())
                 .writerKeyHash(writerKeyHash)
+                .moderationStatus(moderationStatus)
                 .build();
         return CheerResponse.from(cheerRepository.save(cheer), writerKeyHash);
     }

@@ -19,20 +19,20 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final UserLoginService userLoginService;
-    private final OAuth2ProviderUserIdExtractor providerUserIdExtractor;
+    private final OAuth2UserProfileExtractor userProfileExtractor;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthCookieService authCookieService;
     private final FrontendUrl frontendUrl;
 
     public OAuth2LoginSuccessHandler(
             UserLoginService userLoginService,
-            OAuth2ProviderUserIdExtractor providerUserIdExtractor,
+            OAuth2UserProfileExtractor userProfileExtractor,
             JwtTokenProvider jwtTokenProvider,
             AuthCookieService authCookieService,
             String frontendUrl
     ) {
         this.userLoginService = userLoginService;
-        this.providerUserIdExtractor = providerUserIdExtractor;
+        this.userProfileExtractor = userProfileExtractor;
         this.jwtTokenProvider = jwtTokenProvider;
         this.authCookieService = authCookieService;
         this.frontendUrl = new FrontendUrl(frontendUrl);
@@ -49,8 +49,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         OAuthProvider provider = OAuthProvider.valueOf(
                 oauth2Authentication.getAuthorizedClientRegistrationId().toUpperCase()
         );
-        String providerUserId = providerUserIdExtractor.extract(provider, oauth2Authentication.getPrincipal());
-        User user = userLoginService.login(provider, providerUserId);
+        OAuth2UserProfile profile = userProfileExtractor.extract(provider, oauth2Authentication.getPrincipal());
+        User user = userLoginService.login(provider, profile);
 
         authCookieService.addAccessToken(response, jwtTokenProvider.createAccessToken(user.getId()));
 

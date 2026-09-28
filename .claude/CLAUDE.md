@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v1.9), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.6)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v1.10), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.7)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`~`V7__lost_item_image.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`~`V8__user_social_profile.sql` |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 이미지 | `software.amazon.awssdk:s3`(AWS BOM 2.55.4, netty 제외) + `net.coobird:thumbnailator` 0.4.21. 저장소는 `app.storage.type` local(기본)·s3 |
 | 캐시 | `spring-boot-starter-data-redis`(Lettuce, 풀 비활성). 운영은 ElastiCache(Valkey 8). `app.cache.enabled`로 끈다 |
@@ -297,7 +297,7 @@ public class ClockConfig {
 ## 7. 인증·인가
 
 - 인증 상태 = HttpOnly·Secure·SameSite=Lax 쿠키 `access_token`의 JWT(uid, iat, exp). Authorization 헤더·localStorage 방식은 만들지 않는다(FR-AUTH-07). JWT에 개인정보를 넣지 않는다.
-- 소셜 로그인은 Spring Security OAuth2 Client가 서버에서 코드 교환. 동의 항목은 식별자만(카카오 `id`, 구글 `sub`). 카카오·구글 계정은 연동하지 않는다(별도 회원).
+- 소셜 로그인은 Spring Security OAuth2 Client가 서버에서 코드 교환. 계정 식별자와 표시 이름·프로필 사진만 요청하고 이메일은 요청하지 않는다. 로그인마다 표시 이름·프로필 사진을 최신화하며 본인의 `/api/v1/auth/me`에만 제공한다. 카카오·구글 계정은 연동하지 않는다(별도 회원).
 - 운영자 role은 로그인 시 `app_settings.admin.allowlist`로만 부여된다. role을 바꾸는 API·엔드포인트를 만들지 않는다. STAFF는 콘텐츠·신고 관리, OWNER는 회차 발표 확정·설정 변경까지.
 - SecurityConfig 목표 상태(순서가 의미 있음, 먼저 매칭되는 규칙이 이긴다):
 
