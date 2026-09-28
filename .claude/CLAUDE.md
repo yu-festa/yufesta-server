@@ -7,7 +7,7 @@
 ## 0. 작업 순서
 
 1. 기능을 만들기 전에 `docs/srs.md`에서 해당 FR 번호를 찾아 읽는다.
-2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 새 `db/migration/V{n}__설명.sql`을 추가하고 `docs/erd.sql`·`docs/erd.md`를 같은 커밋에서 고친다. 새 테이블의 초기 데이터도 마이그레이션 INSERT로 넣고 `docs/erd.sql` 하단에 같은 내용을 둔다.
+2. 테이블·컬럼은 `docs/erd.sql`을 따른다. 스키마를 바꾸면 새 `db/migration/V{n}__설명.sql`을 추가하고 `docs/erd.sql`·`docs/erd.md`를 같은 커밋에서 고친다. 한 번 배포된 마이그레이션은 기능을 되돌려도 삭제·수정·버전 재사용하지 않고, 후속 변경은 반드시 새 버전으로 추가한다. 새 테이블의 초기 데이터도 마이그레이션 INSERT로 넣고 `docs/erd.sql` 하단에 같은 내용을 둔다.
 3. 새 코드는 `common`, `domain/user`, `domain/auth`의 기존 스타일을 따른다. 충돌 시 이 문서 > 기존 코드.
 4. 변경 후 `./gradlew test` 통과. 컴파일 경고를 새로 만들지 않는다.
 5. 모호하면 구현하지 말고 질문한다. 추측으로 요구사항을 확장하지 않는다.
@@ -22,7 +22,7 @@
 | 웹 | `spring-boot-starter-webmvc` (Boot 4에서 `-web` 대신 이 이름) |
 | Lombok | Boot BOM 관리(명시 버전 없음). `compileOnly` + `annotationProcessor` |
 | DB | MySQL 8.4 (`compose.yml`), 드라이버 `com.mysql:mysql-connector-j`. 테스트는 H2 `MODE=MySQL` |
-| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`~`V8__user_social_profile.sql` |
+| 마이그레이션 | Flyway (`spring-boot-starter-flyway` + `org.flywaydb:flyway-mysql`, Boot BOM 관리). `db/migration/V1__init.sql`~`V9__user_social_profile.sql`. V8은 되돌린 Web Push 기능의 운영 적용 이력 보존용 |
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 이미지 | `software.amazon.awssdk:s3`(AWS BOM 2.55.4, netty 제외) + `net.coobird:thumbnailator` 0.4.21. 저장소는 `app.storage.type` local(기본)·s3 |
 | 캐시 | `spring-boot-starter-data-redis`(Lettuce, 풀 비활성). 운영은 ElastiCache(Valkey 8). `app.cache.enabled`로 끈다 |
