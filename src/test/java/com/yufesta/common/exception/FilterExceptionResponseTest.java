@@ -35,7 +35,8 @@ class FilterExceptionResponseTest {
 
     @Test
     void 인증_필터의_DB_장애는_500_ErrorResponse_JSON으로_응답한다() {
-        when(userRepository.findById(anyLong())).thenThrow(new DataAccessResourceFailureException("db down"));
+        // 인증 필터는 역할만 읽는다(UserRoleCache → findRoleById)
+        when(userRepository.findRoleById(anyLong())).thenThrow(new DataAccessResourceFailureException("db down"));
         String token = jwtTokenProvider.createAccessToken(1L);
 
         RestClient.create("http://localhost:" + port)

@@ -26,6 +26,7 @@
 | 문서 | `springdoc-openapi-starter-webmvc-ui` 3.0.3, dev 프로필에서만 노출 |
 | 이미지 | `software.amazon.awssdk:s3`(AWS BOM 2.55.4, netty 제외) + `net.coobird:thumbnailator` 0.4.21. 저장소는 `app.storage.type` local(기본)·s3 |
 | 캐시 | `spring-boot-starter-data-redis`(Lettuce, 풀 비활성). 운영은 ElastiCache(Valkey 8). `app.cache.enabled`로 끈다 |
+| 로컬 캐시 | `com.github.ben-manes.caffeine:caffeine`(Boot BOM 관리). 인증 필터의 회원 역할을 태스크 메모리에 60초 기억(`UserRoleCache`) |
 | 빌드 | Gradle 9.7.1 wrapper. 항상 `./gradlew` 사용 |
 
 버전은 `build.gradle`과 `gradle-wrapper.properties`에 적힌 것만 기록한다. 바뀌면 이 표를 같은 커밋에서 갱신한다. BOM이 관리하는 라이브러리 버전을 코드나 문서에 직접 적지 않는다.
@@ -88,7 +89,7 @@ com.yufesta
 ```
 
 - 새 공통 설정(Clock, CORS, OpenAPI, Redis, S3 등)은 `common/config`, SSE 기반은 `common/sse`에 둔다.
-- 응답 캐시: 부하 테스트에서 처리량 천장이 앱 CPU였고 요청당 CPU가 Hibernate 매핑·DTO 변환·JSON 직렬화에 쓰이므로, **완성된 응답 문자열**을 캐시해 그 경로를 건너뛴다(`CachedResponseFilter`). 객체를 캐시하면 역직렬화 비용을 다시 낸다. 캐시 대상은 **로그인·쿠키와 무관하게 모든 사용자에게 같은 응답**인 공개 GET만(타임테이블·라인업·장소·공지). 응원 메시지(`isMine`)와 홈 요약(`my`)은 제외하고, 요약은 서비스 계층에서 공통부만 캐시한다(`MatchSummaryService`). 서비스 계층에서 캐시할 때는 캐시 확인을 트랜잭션 밖에 둔다: 읽기 전용 트랜잭션은 SELECT가 없어도 시작·종료만으로 커넥션을 빌리고 제어문 5개를 보내므로, DB 조회는 별도 빈(`MatchSummaryQueryService`)으로 나누고 조립하는 쪽에는 `@Transactional`을 붙이지 않는다. 운영자 쓰기 뒤 `PublicCacheEvictor`로 즉시 무효화한다. 캐시 장애는 기능 장애가 아니다: 모든 Redis 호출은 예외를 먹고 DB 경로로 가며(fail-open), Redis 헬스 지표는 껐다(캐시 장애가 ALB 헬스 DOWN으로 번지면 전면 장애가 된다).
+- 응답 캐시: 부하 테스트에서 처리량 천장이 앱 CPU였고 요청당 CPU가 Hibernate 매핑·DTO 변환·JSON 직렬화에 쓰이므로, **완성된 응답 문자열**을 캐시해 그 경로를 건너뛴다(`CachedResponseFilter`). 객체를 캐시하면 역직렬화 비용을 다시 낸다. 캐시 대상은 **로그인·쿠키와 무관하게 모든 사용자에게 같은 응답**인 공개 GET만(타임테이블·라인업·장소·공지). 응원 메시지(`isMine`)와 홈 요약(`my`)은 제외하고, 요약은 서비스 계층에서 공통부만 캐시한다(`MatchSummaryService`). 서비스 계층에서 캐시할 때는 캐시 확인을 트랜잭션 밖에 둔다: 읽기 전용 트랜잭션은 SELECT가 없어도 시작·종료만으로 커넥션을 빌리고 제어문 5개를 보내므로, DB 조회는 별도 빈(`MatchSummaryQueryService`)으로 나누고 조립하는 쪽에는 `@Transactional`을 붙이지 않는다. 운영자 쓰기 뒤 `PublicCacheEvictor`로 무효화한다. 서비스가 트랜잭션 안에서 불러도 실제 삭제는 **커밋 뒤**에 일어난다(커밋 전에 지우면 그 틈의 요청이 옛 값을 읽어 캐시에 다시 넣는다). 다른 응답에 실려 나가는 데이터는 함께 지운다(공연 시간은 라인업 카드에도 있으므로 타임테이블 변경은 라인업도 지운다). 만료된 값의 재계산은 락을 잡은 한 요청만 하고, 끝나면 락을 돌려준다(락 제한 3초는 재계산하던 요청이 죽었을 때의 안전망). 캐시 장애는 기능 장애가 아니다: 모든 Redis 호출은 예외를 먹고 DB 경로로 가며(fail-open), Redis 헬스 지표는 껐다(캐시 장애가 ALB 헬스 DOWN으로 번지면 전면 장애가 된다).
 - 도메인 ↔ 테이블: `user`(users) · `auth`(테이블 없음) · `appsetting`(app_settings) · `match`(match_rounds, applications, application_tags, matches, blocks) · `timetable`(timetable_slots) · `place`(places, place_events) · `club`(clubs) · `notice`(notices) · `lostitem`(lost_items, lost_item_images) · `cheer`(cheers) · `report`(content_reports) · `nickname`(테이블 없음) · `moderation`(콘텐츠 필터, 테이블 없음) · `photo`(festival_photos)
 - 운영자 API는 별도 `admin` 패키지를 만들지 않고 각 도메인의 `Admin<Domain>Controller`에 둔다. URL은 `/api/v1/admin/<도메인>`.
 
@@ -317,6 +318,7 @@ denyAll     : anyRequest
 - prod는 `server.forward-headers-strategy: framework`. ALB가 TLS를 끝내고 HTTP로 넘기므로 `X-Forwarded-Proto`로 redirect-uri와 리다이렉트 URL을 https로 만든다. dev에는 두지 않는다(프록시가 없어 헤더 위조가 가능).
 - CORS 허용 origin은 `app.auth.allowed-origins`(환경변수 `ALLOWED_ORIGINS`, 쉼표 구분). 비어 있으면 `frontend-url` 하나. `frontend-url`은 로그인 후 리다이렉트 기준이라 항상 하나다.
 - 작성 금지(`write_banned_at`)·매칭 차단(`matching_blocked_at`)은 토큰이 아니라 쓰기 시점에 DB로 확인한다(FR-AUTH-08).
+- 인증 필터는 토큰의 회원 id로 역할을 알아낸다. 요청마다 DB를 읽지 않도록 `UserRoleCache`가 태스크 메모리에 60초 기억한다. 기억하는 것은 USER뿐이고 운영자(STAFF·OWNER)는 매번 DB에서 읽는다. 운영자 경로(`/api/v1/admin/**`, `/actuator/**`)의 요청도 항상 DB에서 읽어 역할 부여·회수가 즉시 반영된다. 인증 경로는 Redis에 의존하지 않는다(과부하 때 Redis 호출이 200ms 제한에 걸리는 것을 측정에서 확인).
 - 접근 로그에는 요청마다 `[req=요청ID user=회원ID]`가 붙는다(`RequestLoggingFilter`가 MDC에 넣고 `logging.pattern.level`이 출력). 요청 ID는 클라이언트의 `X-Request-Id`를 이어받거나(형식 검사 후) 새로 만들고 응답 헤더로 돌려준다. 운영자 API 호출자 식별(NFR-SC-05)과 부하·장애 분석에 쓴다.
 
 ## 8. 도메인 불변 규칙 (SRS 요약 — 위반 금지)
@@ -433,7 +435,7 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 - 매칭 엔진: 순수 단위 테스트. 최소 케이스 — 1:1 완전 매칭, 성비 2:1에서 전원 배정, N 상한 초과 시 미매칭 발생, 차단 쌍 제외, 이전 회차 쌍 제외, 동점 결정성, 한쪽 0명.
 - 배치 전체(풀→엔진→저장→발표→이월)는 `MatchRoundBatchInvariantTest`(`@SpringBootTest` + `@Transactional`, 고정 시드 1,000명)가 불변식으로 검증한다: 거울 행·동성 없음·차단 쌍 없음·파트너 상한·점수 재계산(엔진 메서드를 부르지 않고 따로 계산)·재실행 결정성·이월 규칙. 같은 불변식의 SQL 판은 `load/verify.sql`이며 리허설·부하 테스트 뒤 실제 MySQL에서 돌린다. 성비별 미매칭 수용량은 `MatchingEngineCapacityTest`(미매칭 = `max(0, 다수 − 소수 × N)`).
 - 새 기능에는 서비스 단위 테스트가 반드시 포함된다. 커버리지 수치는 강제하지 않는다.
-- 라이브러리 추가는 사람이 결정한다. 도입됨: `spring-boot-starter-flyway`+`flyway-mysql`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`. 합의된 후보: `spring-boot-starter-data-redis`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
+- 라이브러리 추가는 사람이 결정한다. 도입됨: `spring-boot-starter-flyway`+`flyway-mysql`, `software.amazon.awssdk:s3`, `net.coobird:thumbnailator`, `spring-boot-starter-data-redis`, `caffeine`. 합의된 후보: `spring-boot-starter-data-redis`, ShedLock(Redis provider). 이 밖의 라이브러리는 제안만 하고 추가하지 않는다.
 
 ## 12. 현재 상태와 우선 보완 항목
 

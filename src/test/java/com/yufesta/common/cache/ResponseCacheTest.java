@@ -1,6 +1,7 @@
 package com.yufesta.common.cache;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -35,6 +36,7 @@ class ResponseCacheTest {
     private static final Instant NOW = Instant.parse("2026-10-02T15:00:00Z");
     private static final String KEY = "timetable";
     private static final String FULL_KEY = "yufesta:v1:timetable";
+    private static final String LOCK_KEY = "yufesta:lock:yufesta:v1:timetable";
     private static final Duration TTL = Duration.ofSeconds(10);
 
     @Mock
@@ -107,6 +109,40 @@ class ResponseCacheTest {
         assertThat(winner).isEqualTo("새 값");
         assertThat(loser).isEqualTo("옛 값");   // 만료됐지만 살아 있는 값으로 응답
         assertThat(loaded).hasValue(1);        // 원본 계산은 한 번만
+    }
+
+    @Test
+    void 재계산이_끝나면_락을_돌려준다() {
+        long expired = NOW.toEpochMilli() - 1_000;
+        when(valueOps.get(FULL_KEY)).thenReturn(expired + "\n옛 값");
+        when(valueOps.setIfAbsent(anyString(), eq("1"), any(Duration.class))).thenReturn(true);
+
+        cache.get(KEY, TTL, () -> "새 값");
+
+        // 돌려주지 않으면 신선 기간이 락 제한보다 짧은 키가 락 제한 주기로만 갱신된다
+        verify(redis).delete(LOCK_KEY);
+    }
+
+    @Test
+    void 원본_계산이_실패하면_락을_남겨_재시도_간격으로_쓴다() {
+        long expired = NOW.toEpochMilli() - 1_000;
+        when(valueOps.get(FULL_KEY)).thenReturn(expired + "\n옛 값");
+        when(valueOps.setIfAbsent(anyString(), eq("1"), any(Duration.class))).thenReturn(true);
+
+        assertThatThrownBy(() -> cache.get(KEY, TTL, () -> {
+            throw new IllegalStateException("DB 장애");
+        })).isInstanceOf(IllegalStateException.class);
+
+        verify(redis, never()).delete(LOCK_KEY);
+    }
+
+    @Test
+    void 값이_없어_락_없이_계산한_요청은_락을_건드리지_않는다() {
+        when(valueOps.get(FULL_KEY)).thenReturn(null);
+
+        cache.get(KEY, TTL, () -> "새 값");
+
+        verify(redis, never()).delete(LOCK_KEY);
     }
 
     @Test

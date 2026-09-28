@@ -27,7 +27,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * TTL이 끝나는 순간 그 키로 오던 초당 수백 건이 동시에 미스가 되어 전부 DB로 몰리는 현상이다.
  * 570 req/s에서 TTL 2초면 만료마다 수백 건이 한꺼번에 쏟아진다. 두 가지로 막는다.
  * <ul>
- *   <li><b>재계산 락</b>: {@code SET lock:<key> 1 NX PX}로 한 요청만 재계산 권한을 얻는다</li>
+ *   <li><b>재계산 락</b>: {@code SET lock:<key> 1 NX PX}로 한 요청만 재계산 권한을 얻고, 끝나면 돌려준다.
+ *       락 제한(3초)은 재계산하던 요청이 죽었을 때를 위한 안전망이다</li>
  *   <li><b>만료 지터</b>: 신선 기간에 ±10%를 섞어 여러 키가 같은 순간에 만료되지 않게 흩는다</li>
  * </ul>
  *
@@ -80,6 +81,14 @@ public class ResponseCache {
         // loader가 null을 주면 "이 응답은 캐시하면 안 된다"는 뜻이다(예: 200이 아닌 응답)
         if (fresh != null) {
             write(fullKey, fresh, ttl);
+        }
+        // 옛 값이 있었다면 위에서 락을 잡고 들어온 것이다. 재계산이 끝났으니 돌려준다.
+        // 돌려주지 않으면 락 제한(3초)이 끝날 때까지 아무도 재계산하지 못해, 신선 기간이 그보다 짧은 키(요약 2초)는
+        // 3초마다 갱신되고 그 사이 요청은 전부 락을 시도했다 실패한다(2026-09-28 측정에서 확인).
+        // loader가 예외를 던지면 여기까지 오지 않아 락이 남는다. 의도한 것이다: DB가 아플 때 락 제한이 재시도 간격이 되고
+        // 그동안 다른 요청은 옛 값을 받는다
+        if (cached != null) {
+            unlock(fullKey);
         }
         return fresh;
     }
@@ -148,12 +157,26 @@ public class ResponseCache {
     private boolean tryLock(String fullKey) {
         try {
             Boolean acquired = redis.opsForValue()
-                    .setIfAbsent(LOCK_PREFIX + ":" + fullKey, "1", properties.lockTimeout());
+                    .setIfAbsent(lockKey(fullKey), "1", properties.lockTimeout());
             return Boolean.TRUE.equals(acquired);
         } catch (RuntimeException exception) {
             logFailure("lock", fullKey, exception);
             return true; // Redis를 못 쓰면 각자 계산한다(캐시가 없는 것과 같은 상태)
         }
+    }
+
+    // 남의 락을 지울 수 있다(내 재계산이 락 제한보다 오래 걸려 다른 요청이 이미 새로 잡은 경우).
+    // 그래도 재계산이 한 번 더 도는 것뿐이라 소유 확인 없이 지운다. 이 락은 정확성이 아니라 효율을 위한 것이다
+    private void unlock(String fullKey) {
+        try {
+            redis.delete(lockKey(fullKey));
+        } catch (RuntimeException exception) {
+            logFailure("unlock", fullKey, exception);
+        }
+    }
+
+    private static String lockKey(String fullKey) {
+        return LOCK_PREFIX + ":" + fullKey;
     }
 
     // 여러 키가 같은 순간에 만료되면 그 순간에 부하가 몰린다. ±10%로 흩는다

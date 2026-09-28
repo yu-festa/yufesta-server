@@ -1,6 +1,7 @@
 package com.yufesta.domain.match.repository;
 
 import com.yufesta.domain.match.entity.Application;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,6 +23,21 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     // 유니크 제약이 취소 행까지 포함하므로 선검사도 취소 여부를 보지 않는다
     boolean existsByRound_IdAndInstagramId(Long roundId, String instagramId);
+
+    // 홈 요약의 my: 회차별(현재·최근 발표) 유효 신청과 매칭 여부를 한 번에 읽는다.
+    // 회차마다 신청을 따로 읽고 매칭 여부를 또 읽으면 폴링 한 건에 쿼리가 3~4개 나간다.
+    // matches는 방향성 2행이라 내 신청 id로 한 행이라도 있으면 매칭된 것이다
+    @Query("""
+            select new com.yufesta.domain.match.repository.MyApplicationState(
+                a.round.id,
+                case when exists (select 1 from Match m where m.application = a) then true else false end
+            )
+            from Application a
+            where a.user.id = :userId
+              and a.round.id in :roundIds
+              and a.canceledAt is null
+            """)
+    List<MyApplicationState> findMyStates(@Param("userId") Long userId, @Param("roundIds") Collection<Long> roundIds);
 
     // 배치 풀: 해당 회차·미취소·매칭 차단 아님(§8). 태그·보고 싶은 공연까지 한 번에 읽어 N+1을 막는다
     @Query("""

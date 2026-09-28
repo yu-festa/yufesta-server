@@ -8,6 +8,9 @@ import { authHeaders } from '../lib/token.js';
 //    도착률 기반(arrival-rate)이라 서버가 느려져도 부하가 줄지 않아 한계가 드러난다.
 const RATE = Number(__ENV.RATE || 300);
 const DURATION = __ENV.DURATION || '10m';
+// 요약 요청 가운데 로그인 상태로 보내는 비율. 당일 홈을 폴링하는 사람은 대부분 로그인 상태라 실제는 1에 가깝다.
+// 로그인 요청은 인증과 내 상태 계산이 붙어 비로그인보다 무겁다(README 2026-09-28). 기본 0.5는 이전 측정과 맞춘 값이다
+const LOGIN_RATIO = Number(__ENV.LOGIN_RATIO || 0.5);
 
 export const options = {
   scenarios: {
@@ -24,10 +27,10 @@ export const options = {
 };
 
 export default function () {
-  // 홈 폴링이 가장 잦다(1,000명이 5초 주기로 부르면 상시 200 req/s). 절반은 로그인 상태로 본다
+  // 홈 폴링이 가장 잦다(1,000명이 5초 주기로 부르면 상시 200 req/s)
   const dice = Math.random();
   const userId = pickUserId();
-  const headers = JWT_SECRET && userId && Math.random() < 0.5 ? authHeaders(userId, JWT_SECRET) : {};
+  const headers = JWT_SECRET && userId && Math.random() < LOGIN_RATIO ? authHeaders(userId, JWT_SECRET) : {};
 
   if (dice < 0.4) {
     http.get(`${BASE_URL}/api/v1/match/summary`, { headers, tags: { endpoint: '/match/summary' } });

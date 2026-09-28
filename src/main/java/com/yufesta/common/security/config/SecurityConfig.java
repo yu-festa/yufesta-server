@@ -4,6 +4,7 @@ import com.yufesta.common.security.handler.SecurityErrorResponseHandler;
 import com.yufesta.common.security.jwt.AuthCookieService;
 import com.yufesta.common.security.jwt.JwtAuthenticationFilter;
 import com.yufesta.common.security.jwt.JwtTokenProvider;
+import com.yufesta.common.security.jwt.UserRoleCache;
 import com.yufesta.common.security.oauth2.CookieOAuth2AuthorizationRequestRepository;
 import com.yufesta.common.security.oauth2.OAuth2LoginFailureHandler;
 import com.yufesta.common.security.oauth2.OAuth2LoginSuccessHandler;
@@ -52,6 +53,12 @@ public class SecurityConfig {
         return new AuthCookieService(authProperties.cookie(), jwtTokenProvider);
     }
 
+    // 로그인 요청마다 회원을 DB에서 읽지 않도록 역할을 태스크 메모리에 잠깐 기억
+    @Bean
+    public UserRoleCache userRoleCache(UserRepository userRepository) {
+        return new UserRoleCache(userRepository);
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -60,7 +67,7 @@ public class SecurityConfig {
             OAuth2UserProfileExtractor userProfileExtractor,
             JwtTokenProvider jwtTokenProvider,
             AuthCookieService authCookieService,
-            UserRepository userRepository,
+            UserRoleCache userRoleCache,
             AuthProperties authProperties,
             ObjectMapper objectMapper
     ) throws Exception {
@@ -142,7 +149,7 @@ public class SecurityConfig {
                         .failureHandler(failureHandler)
                 )
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider, userRepository, authProperties.cookie().name()),
+                        new JwtAuthenticationFilter(jwtTokenProvider, userRoleCache, authProperties.cookie().name()),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)

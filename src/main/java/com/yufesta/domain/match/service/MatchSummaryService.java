@@ -65,7 +65,7 @@ public class MatchSummaryService {
     public MatchSummaryResponse getSummary(Long userId) {
         LocalDateTime now = LocalDateTime.now(clock);
         MatchSummaryCommonResponse common = cachedCommon();
-        MySummaryResponse my = userId == null ? null : summaryQueryService.loadMy(userId);
+        MySummaryResponse my = userId == null ? null : summaryQueryService.loadMy(userId, common);
         return MatchSummaryResponse.of(now, common, my);
     }
 
