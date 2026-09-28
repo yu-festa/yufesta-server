@@ -41,6 +41,7 @@ public class ResponseCache {
     private static final String KEY_PREFIX = "yufesta";
     private static final String LOCK_PREFIX = "yufesta:lock";
     private static final char SEPARATOR = '\n';
+    private static final String PING_KEY = "ping";
     private static final double JITTER = 0.1;
 
     private final StringRedisTemplate redis;
@@ -84,20 +85,27 @@ public class ResponseCache {
     }
 
     /**
-     * 기동 직후 커넥션을 미리 맺는다.
-     * <p>붙이지 않으면 태스크가 새로 뜬 뒤 첫 한두 요청이 연결 수립(DNS 조회 + TCP)에 걸려 타임아웃되고
-     * 캐시를 건너뛴다(2026-09-27 배포에서 실제로 관측). 사용자 요청이 그 비용을 내지 않게 기동 시 한 번 붙여 둔다.
-     * 실패해도 기동을 막지 않는다. Redis가 늦게 떠도 다음 요청에서 다시 붙는다
+     * 커넥션이 살아 있는지 명령 한 번으로 확인하고 성공 여부를 돌려준다. 로그는 남기지 않는다
+     * (부르는 쪽이 기동 예열인지 주기 확인인지에 따라 다르게 알려야 하기 때문. {@link CacheConnectionKeeper}).
+     * <p>이 메서드가 필요한 이유는 두 가지다.
+     * <ul>
+     *   <li><b>첫 연결</b> — Redis 커넥션은 요청마다 맺지 않고 하나를 계속 재사용한다. 그 하나를 처음 맺을 때
+     *       DNS 조회와 TCP 핸드셰이크가 필요한데, 기동 직후는 CPU가 Spring 초기화에 묶여 있어 느리다.
+     *       미리 맺어 두지 않으면 첫 사용자 요청이 그 비용을 내고 타임아웃된다(2026-09-27 배포에서 관측)</li>
+     *   <li><b>유휴 끊김</b> — 오래 쓰지 않은 소켓은 중간에서 정리된다. 앱은 끊긴 줄 모르고 있다가
+     *       다음 명령에서 실패한다(2026-09-28 08:49 관측). 주기적으로 말을 걸어 두면 생기지 않는다</li>
+     * </ul>
+     * 캐시가 꺼져 있으면 확인할 커넥션도 없으므로 true를 돌려준다.
      */
-    public void warmUp() {
+    public boolean ping() {
         if (!properties.enabled()) {
-            return;
+            return true;
         }
         try {
-            redis.hasKey(fullKey("warmup"));
-            log.info("응답 캐시 연결 준비 완료");
+            redis.hasKey(fullKey(PING_KEY));
+            return true;
         } catch (RuntimeException exception) {
-            logFailure("warmup", "-", exception);
+            return false;
         }
     }
 

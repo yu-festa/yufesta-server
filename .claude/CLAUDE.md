@@ -68,7 +68,8 @@ com.yufesta
 │  ├─ response      ApiResponse<T>
 │  ├─ logging       RequestLoggingFilter
 │  ├─ storage       ImageStorage(S3·로컬 어댑터), ImageProcessor(리사이즈), StorageProperties
-│  ├─ cache         ResponseCache(TTL·스탬피드·fail-open), CachedResponseFilter(공개 GET 응답 캐시), PublicCacheEvictor
+│  ├─ cache         ResponseCache(TTL·스탬피드·fail-open), CachedResponseFilter(공개 GET 응답 캐시), PublicCacheEvictor,
+│  │                CacheConnectionKeeper(기동 예열·유휴 커넥션 유지)
 │  └─ security      config/{SecurityConfig, AuthProperties}, jwt/*, oauth2/*
 └─ domain
    └─ <도메인>
@@ -87,7 +88,7 @@ com.yufesta
 ```
 
 - 새 공통 설정(Clock, CORS, OpenAPI, Redis, S3 등)은 `common/config`, SSE 기반은 `common/sse`에 둔다.
-- 응답 캐시: 부하 테스트에서 처리량 천장이 앱 CPU였고 요청당 CPU가 Hibernate 매핑·DTO 변환·JSON 직렬화에 쓰이므로, **완성된 응답 문자열**을 캐시해 그 경로를 건너뛴다(`CachedResponseFilter`). 객체를 캐시하면 역직렬화 비용을 다시 낸다. 캐시 대상은 **로그인·쿠키와 무관하게 모든 사용자에게 같은 응답**인 공개 GET만(타임테이블·라인업·장소·공지). 응원 메시지(`isMine`)와 홈 요약(`my`)은 제외하고, 요약은 서비스 계층에서 공통부만 캐시한다. 운영자 쓰기 뒤 `PublicCacheEvictor`로 즉시 무효화한다. 캐시 장애는 기능 장애가 아니다: 모든 Redis 호출은 예외를 먹고 DB 경로로 가며(fail-open), Redis 헬스 지표는 껐다(캐시 장애가 ALB 헬스 DOWN으로 번지면 전면 장애가 된다).
+- 응답 캐시: 부하 테스트에서 처리량 천장이 앱 CPU였고 요청당 CPU가 Hibernate 매핑·DTO 변환·JSON 직렬화에 쓰이므로, **완성된 응답 문자열**을 캐시해 그 경로를 건너뛴다(`CachedResponseFilter`). 객체를 캐시하면 역직렬화 비용을 다시 낸다. 캐시 대상은 **로그인·쿠키와 무관하게 모든 사용자에게 같은 응답**인 공개 GET만(타임테이블·라인업·장소·공지). 응원 메시지(`isMine`)와 홈 요약(`my`)은 제외하고, 요약은 서비스 계층에서 공통부만 캐시한다(`MatchSummaryService`). 서비스 계층에서 캐시할 때는 캐시 확인을 트랜잭션 밖에 둔다: 읽기 전용 트랜잭션은 SELECT가 없어도 시작·종료만으로 커넥션을 빌리고 제어문 5개를 보내므로, DB 조회는 별도 빈(`MatchSummaryQueryService`)으로 나누고 조립하는 쪽에는 `@Transactional`을 붙이지 않는다. 운영자 쓰기 뒤 `PublicCacheEvictor`로 즉시 무효화한다. 캐시 장애는 기능 장애가 아니다: 모든 Redis 호출은 예외를 먹고 DB 경로로 가며(fail-open), Redis 헬스 지표는 껐다(캐시 장애가 ALB 헬스 DOWN으로 번지면 전면 장애가 된다).
 - 도메인 ↔ 테이블: `user`(users) · `auth`(테이블 없음) · `appsetting`(app_settings) · `match`(match_rounds, applications, application_tags, matches, blocks) · `timetable`(timetable_slots) · `place`(places, place_events) · `club`(clubs) · `notice`(notices) · `lostitem`(lost_items, lost_item_images) · `cheer`(cheers) · `report`(content_reports) · `nickname`(테이블 없음) · `moderation`(콘텐츠 필터, 테이블 없음) · `photo`(festival_photos)
 - 운영자 API는 별도 `admin` 패키지를 만들지 않고 각 도메인의 `Admin<Domain>Controller`에 둔다. URL은 `/api/v1/admin/<도메인>`.
 

@@ -48,6 +48,16 @@ public class PublicCacheEvictor {
         cache.evict(TIMETABLE);
     }
 
+    /**
+     * 회차 상태·시각이 바뀐 직후(수동 오픈, 시각 수정, 마감, 발표). 홈 요약은 서비스 계층에서
+     * 공통부만 캐시하므로 키도 URL이 아니라 도메인 이름이다.
+     * <p>신청·취소로 바뀌는 신청자 수는 일부러 지우지 않는다. 마감 직전 초당 수십 건이 들어오는데
+     * 그때마다 버리면 캐시가 없는 것과 같아진다. 2초 TTL만큼 늦게 보이는 것으로 충분하다.
+     */
+    public void evictMatchSummary() {
+        cache.evict(CacheKey.MATCH_SUMMARY);
+    }
+
     /** 공지 등록·수정·삭제 뒤. 긴급 배너는 즉시 반영돼야 한다 */
     public void evictNotices(Long noticeId) {
         List<String> keys = keys(NOTICES, noticeId);

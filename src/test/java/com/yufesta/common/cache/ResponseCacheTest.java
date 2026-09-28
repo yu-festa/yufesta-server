@@ -140,15 +140,26 @@ class ResponseCacheTest {
     }
 
     @Test
-    void 기동_예열은_연결을_맺어_보고_실패해도_예외를_던지지_않는다() {
-        when(redis.hasKey("yufesta:v1:warmup")).thenThrow(new RedisConnectionFailureException("연결 실패"));
+    void 커넥션_확인은_실패를_예외가_아니라_false로_알린다() {
+        when(redis.hasKey("yufesta:v1:ping")).thenThrow(new RedisConnectionFailureException("연결 실패"));
 
-        cache.warmUp();   // 예외가 새면 기동이 막힌다
+        assertThat(cache.ping()).isFalse();   // 예외가 새면 기동이 막힌다
 
-        verify(redis).hasKey("yufesta:v1:warmup");
-        // 캐시를 끄면 아예 건드리지 않는다
-        new ResponseCache(redis, properties(false), clock).warmUp();
-        verify(redis, org.mockito.Mockito.times(1)).hasKey(anyString());
+        verify(redis).hasKey("yufesta:v1:ping");
+    }
+
+    @Test
+    void 커넥션이_살아_있으면_true다() {
+        when(redis.hasKey("yufesta:v1:ping")).thenReturn(false);
+
+        assertThat(cache.ping()).isTrue();
+    }
+
+    @Test
+    void 캐시가_꺼져_있으면_확인할_커넥션도_없다() {
+        assertThat(new ResponseCache(redis, properties(false), clock).ping()).isTrue();
+
+        verify(redis, org.mockito.Mockito.never()).hasKey(anyString());
     }
 
     private static CacheProperties properties(boolean enabled) {

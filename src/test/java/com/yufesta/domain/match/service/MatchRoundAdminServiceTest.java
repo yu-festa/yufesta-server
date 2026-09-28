@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.match.dto.request.UpdateRoundTimesRequest;
@@ -42,6 +43,9 @@ class MatchRoundAdminServiceTest {
 
     @Mock
     private MatchRepository matchRepository;
+
+    @Mock
+    private PublicCacheEvictor cacheEvictor;
 
     @InjectMocks
     private MatchRoundAdminService service;

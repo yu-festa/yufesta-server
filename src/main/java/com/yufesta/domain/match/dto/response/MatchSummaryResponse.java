@@ -1,6 +1,5 @@
 package com.yufesta.domain.match.dto.response;
 
-import com.yufesta.domain.match.entity.MatchRound;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Builder;
@@ -17,18 +16,20 @@ public record MatchSummaryResponse(
         @Schema(description = "로그인 사용자의 상태. 비로그인이면 null") MySummaryResponse my
 ) {
 
+    /**
+     * 캐시된 공통부에 요청마다 달라지는 두 가지(서버 시각, 내 상태)를 얹어 응답을 만든다.
+     * 공통부를 왜 따로 두는지는 {@link MatchSummaryCommonResponse}
+     */
     public static MatchSummaryResponse of(
             LocalDateTime serverNow,
-            MatchRound currentRound,
-            MatchRound nextRound,
-            long applicantCount,
+            MatchSummaryCommonResponse common,
             MySummaryResponse my
     ) {
         return MatchSummaryResponse.builder()
                 .serverNow(serverNow)
-                .currentRound(MatchRoundResponse.from(currentRound))
-                .nextRound(nextRound == null ? null : MatchRoundResponse.from(nextRound))
-                .applicantCount(applicantCount)
+                .currentRound(common.currentRound())
+                .nextRound(common.nextRound())
+                .applicantCount(common.applicantCount())
                 .my(my)
                 .build();
     }

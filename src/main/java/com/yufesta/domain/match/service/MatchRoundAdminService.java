@@ -1,5 +1,6 @@
 package com.yufesta.domain.match.service;
 
+import com.yufesta.common.cache.PublicCacheEvictor;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.match.dto.request.UpdateRoundTimesRequest;
@@ -28,15 +29,18 @@ public class MatchRoundAdminService {
     private final MatchRoundRepository matchRoundRepository;
     private final ApplicationRepository applicationRepository;
     private final MatchRepository matchRepository;
+    private final PublicCacheEvictor cacheEvictor;
 
     public MatchRoundAdminService(
             MatchRoundRepository matchRoundRepository,
             ApplicationRepository applicationRepository,
-            MatchRepository matchRepository
+            MatchRepository matchRepository,
+            PublicCacheEvictor cacheEvictor
     ) {
         this.matchRoundRepository = matchRoundRepository;
         this.applicationRepository = applicationRepository;
         this.matchRepository = matchRepository;
+        this.cacheEvictor = cacheEvictor;
     }
 
     /** 회차 전체를 seq 순으로 반환한다. */
@@ -54,6 +58,7 @@ public class MatchRoundAdminService {
     public AdminMatchRoundResponse open(Long roundId) {
         MatchRound round = lockRound(roundId);
         round.open();
+        cacheEvictor.evictMatchSummary();
         return AdminMatchRoundResponse.from(round);
     }
 
@@ -69,6 +74,7 @@ public class MatchRoundAdminService {
         }
         requireValidTimes(request.openAt(), request.closeAt(), request.publishAt());
         round.updateTimes(request.openAt(), request.closeAt(), request.publishAt());
+        cacheEvictor.evictMatchSummary();
         return AdminMatchRoundResponse.from(round);
     }
 
