@@ -8,6 +8,9 @@ import com.yufesta.domain.match.dto.response.AdminMatchRoundResponse;
 import com.yufesta.domain.match.dto.response.RoundBatchResultResponse;
 import com.yufesta.domain.match.entity.MatchRound;
 import com.yufesta.domain.match.enums.RoundStatus;
+import com.yufesta.domain.match.event.RoundEvent;
+import com.yufesta.domain.match.event.RoundEventPublisher;
+import com.yufesta.domain.match.event.RoundEventType;
 import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.match.repository.MatchRoundRepository;
@@ -30,17 +33,20 @@ public class MatchRoundAdminService {
     private final ApplicationRepository applicationRepository;
     private final MatchRepository matchRepository;
     private final PublicCacheEvictor cacheEvictor;
+    private final RoundEventPublisher roundEventPublisher;
 
     public MatchRoundAdminService(
             MatchRoundRepository matchRoundRepository,
             ApplicationRepository applicationRepository,
             MatchRepository matchRepository,
-            PublicCacheEvictor cacheEvictor
+            PublicCacheEvictor cacheEvictor,
+            RoundEventPublisher roundEventPublisher
     ) {
         this.matchRoundRepository = matchRoundRepository;
         this.applicationRepository = applicationRepository;
         this.matchRepository = matchRepository;
         this.cacheEvictor = cacheEvictor;
+        this.roundEventPublisher = roundEventPublisher;
     }
 
     /** 회차 전체를 seq 순으로 반환한다. */
@@ -59,6 +65,7 @@ public class MatchRoundAdminService {
         MatchRound round = lockRound(roundId);
         round.open();
         cacheEvictor.evictMatchSummary();
+        roundEventPublisher.publish(new RoundEvent(RoundEventType.OPENED, round.getSeq()));
         return AdminMatchRoundResponse.from(round);
     }
 

@@ -68,6 +68,10 @@ resource "aws_ecs_task_definition" "api" {
     secrets      = local.container_secrets
     stopTimeout  = 30 # Spring graceful shutdown이 진행 중인 요청을 마칠 시간
 
+    # SSE는 연결 하나가 소켓(파일) 하나를 계속 쥔다. Fargate 기본 소프트 한도는 1,024라
+    # 연결 1,000개에 DB·Redis·ALB 소켓을 더하면 모자란다
+    ulimits = [{ name = "nofile", softLimit = 65536, hardLimit = 65536 }]
+
     logConfiguration = {
       logDriver = "awslogs"
       options = {

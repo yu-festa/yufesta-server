@@ -40,6 +40,10 @@ spring:
 app:
   scheduler:
     enabled: false
+  sse:
+    # 테스트는 Redis 없이 돌린다. 구독과 주기 확인을 끈다(각각 단위 테스트가 검증한다)
+    pubsub-enabled: false
+    watch-enabled: false
   cache:
     # 테스트는 Redis 없이 돌린다. 캐시 동작 자체는 ResponseCacheTest·CachedResponseFilterTest가 검증한다
     enabled: false

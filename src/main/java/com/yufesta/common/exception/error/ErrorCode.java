@@ -10,6 +10,9 @@ public enum ErrorCode {
     // 서버 오류
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."),
 
+    // 실시간 연결(SSE)을 받을 수 없음: 연결 수 상한 초과 또는 서버 종료 중. 프론트는 폴링으로 동작한다
+    SSE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "SSE_UNAVAILABLE", "잠시 후 다시 시도해 주세요."),
+
     // 요청 오류
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "INVALID_INPUT_VALUE", "입력값이 올바르지 않습니다."),
     INVALID_REQUEST_BODY(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_BODY", "요청 본문을 읽을 수 없습니다."),

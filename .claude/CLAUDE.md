@@ -69,6 +69,7 @@ com.yufesta
 │  ├─ response      ApiResponse<T>
 │  ├─ logging       RequestLoggingFilter
 │  ├─ storage       ImageStorage(S3·로컬 어댑터), ImageProcessor(리사이즈), StorageProperties
+│  ├─ sse           SseConnectionRegistry(연결 등록·전송·keepalive·종료 시 닫기), SseProperties
 │  ├─ cache         ResponseCache(TTL·스탬피드·fail-open), CachedResponseFilter(공개 GET 응답 캐시), PublicCacheEvictor,
 │  │                CacheConnectionKeeper(기동 예열·유휴 커넥션 유지)
 │  └─ security      config/{SecurityConfig, AuthProperties}, jwt/*, oauth2/*
@@ -83,6 +84,7 @@ com.yufesta
       ├─ entity
       ├─ enums
       ├─ scheduler              @Scheduled 진입점(match의 RoundScheduler). 시각 판단만 하고 전이는 서비스를 부른다
+      ├─ event                  회차 이벤트(match). RoundEventPublisher와 Redis Pub/Sub 구현, 구독, 중복 제거
       └─ dto
          ├─ request              *Request (record)
          └─ response             *Response (record)
@@ -341,7 +343,7 @@ denyAll     : anyRequest
 - 마감·발표 스케줄: `close_at`에 상태 CLOSED + 배치 실행 + `executed_at`, `publish_at`에 PUBLISHED + `published_at`. 실패 시 운영자 수동 실행 API 필수(NFR-AV-03). 다중 인스턴스에서 한 번만 실행(5장). 구현은 `RoundScheduler`: 10초마다 seq 순으로 시각이 지난 첫 단계 하나만 실행(한 tick에 한 단계, 발표가 다음 회차를 열기 때문). 실패는 로그만 남기고 다음 tick이 재시도. `app.scheduler.enabled`(test 프로필 false, 로컬 `SCHEDULER_ENABLED`)로 끈다.
 - 신고(`blocks`): 신고자–대상 쌍 1건(`uk_blocks_pair`). 같은 트랜잭션에서 대상 신고 수 ≥ `report.block_threshold`면 `users.matching_blocked_at` 설정 + 대상의 현재 회차 신청 삭제. 신고자 결과 화면에서는 대상 카드를 즉시 제외. 신고 사실을 대상에게 노출하지 않는다. 제재 판정은 `MatchReportService.applySanction` 한 곳: 운영자 `CONFIRM`이 있거나 유효 신고 수(`DISMISS` 제외) ≥ 임계면 차단, 아니면 해제(FR-MT-42). 대상 회원 행을 `PESSIMISTIC_WRITE`로 먼저 잠그고 `READ_COMMITTED`로 집계한다. 현재 회차가 `CLOSED`(배치 후)면 `matches`가 참조하므로 신청을 지우지 않고 풀 조건(`matching_blocked_at IS NULL`)이 거른다. 삭제된 신청은 해제돼도 복구하지 않는다.
 - 홈 블록: `GET /api/v1/match/summary` 한 번으로 `serverNow`, 현재·다음 회차(seq·status·openAt·closeAt·publishAt), 신청자 수, 로그인 시 내 상태(NONE/APPLIED/MATCHED/UNMATCHED, 다음 회차 신청 존재 여부).
-- SSE는 매칭 상태 화면만(`GET /api/v1/sse/match`). 이벤트: `applicant-count`, `round-closed`, `round-published`(로그인 연결에만). keepalive 25초. 다중 인스턴스 팬아웃은 Redis Pub/Sub. 발표 이벤트는 "결과를 다시 조회하라"는 신호만 보내고 결과 데이터를 SSE로 싣지 않는다.
+- SSE는 인스타팅 회차 상태만(`GET /api/v1/sse/match`). 이벤트: `connected`, `round-opened`, `round-closed`, `round-published`(로그인 연결에만). 신청자 수는 화면에 노출하지 않기로 해 이벤트가 없다. 이벤트는 "다시 조회하라"는 신호만 보내고 결과 데이터를 싣지 않는다. keepalive 25초. 회차 전이 서비스는 `RoundEventPublisher`로 알리기만 하고(커밋 뒤에 나간다), 구현(`RedisRoundEventPublisher`)이 Redis Pub/Sub로 모든 태스크에 전달한다. Pub/Sub는 유실될 수 있어 `RoundStateWatcher`가 3초마다 현재 상태를 읽어 놓친 이벤트를 챙기고, 두 경로의 중복은 `RoundEventBroadcaster`가 진행 순번으로 거른다. Redis 구독은 기동을 막지 않는다: 컨테이너를 `autoStartup=false`로 두고 `RoundEventSubscriptionStarter`가 기동 뒤에 붙인다(구독을 기동 과정에 두면 Redis가 안 될 때 앱이 뜨지 못한다). 연결은 `common/sse/SseConnectionRegistry`가 들고, 종료 시 가장 먼저 닫는다.
 
 **타임테이블 `timetable`** (FR-TT)
 - 공개 응답에 계산 필드 포함: `effectiveStartAt = start_at + delay_minutes`, `isLive`, `isChanged(changed_from_start != null)`. LIVE 판정: `is_live_override = 1`인 슬롯이 있으면 그것만, 없으면 `effectiveStartAt ≤ now < end_at + delay`.
@@ -443,7 +445,6 @@ public ApplicationResponse apply(Long userId, ApplyMatchRequest request) {
 
 아래는 코드를 읽고 확인한 미완 항목이다. 처리되면 이 목록에서 지운다.
 
-9. Redis 없음(SSE 팬아웃·속도 제한) — 도입은 측정(발표 순간 부하 테스트) 후 결정. 스케줄 락은 필요 없음이 확인됨(5장)
 12. 인앱 브라우저(인스타그램·카카오톡) 로그인 검증 — 구글은 인앱 웹뷰에서 차단됨. 인앱 감지 시 프론트가 구글 버튼 대신 "외부 브라우저로 열기" 안내
 13. `ErrorCode`에 공통 코드만 있고 도메인 코드가 없음 — 각 도메인 첫 작업에서 6장 규칙대로 추가
 

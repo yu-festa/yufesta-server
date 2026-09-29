@@ -17,6 +17,9 @@ import com.yufesta.domain.match.entity.Match;
 import com.yufesta.domain.match.entity.MatchRound;
 import com.yufesta.domain.match.enums.EntryType;
 import com.yufesta.domain.match.enums.RoundStatus;
+import com.yufesta.domain.match.event.RoundEvent;
+import com.yufesta.domain.match.event.RoundEventPublisher;
+import com.yufesta.domain.match.event.RoundEventType;
 import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.BlockRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
@@ -54,6 +57,7 @@ public class MatchRoundBatchService {
     private final AppSettingReader appSettingReader;
     private final PublicCacheEvictor cacheEvictor;
     private final NoticeService noticeService;
+    private final RoundEventPublisher roundEventPublisher;
     private final Clock clock;
     private final MatchingEngine engine = new MatchingEngine();
 
@@ -65,6 +69,7 @@ public class MatchRoundBatchService {
             AppSettingReader appSettingReader,
             PublicCacheEvictor cacheEvictor,
             NoticeService noticeService,
+            RoundEventPublisher roundEventPublisher,
             Clock clock
     ) {
         this.matchRoundRepository = matchRoundRepository;
@@ -74,6 +79,7 @@ public class MatchRoundBatchService {
         this.appSettingReader = appSettingReader;
         this.cacheEvictor = cacheEvictor;
         this.noticeService = noticeService;
+        this.roundEventPublisher = roundEventPublisher;
         this.clock = clock;
     }
 
@@ -87,6 +93,7 @@ public class MatchRoundBatchService {
         MatchRound round = lockRound(roundId);
         round.close();
         cacheEvictor.evictMatchSummary();
+        roundEventPublisher.publish(new RoundEvent(RoundEventType.CLOSED, round.getSeq()));
         return runBatch(round);
     }
 
@@ -113,11 +120,14 @@ public class MatchRoundBatchService {
     public AdminMatchRoundResponse publish(Long roundId) {
         MatchRound round = lockRound(roundId);
         round.publish(LocalDateTime.now(clock));
+        // 캐시 무효화와 이벤트는 모두 커밋 뒤에 나간다. 이벤트는 등록한 순서대로(발표 → 다음 회차 접수) 나간다
+        roundEventPublisher.publish(new RoundEvent(RoundEventType.PUBLISHED, round.getSeq()));
 
         matchRoundRepository.findBySeq(round.getSeq() + 1).ifPresent(next -> {
             int carried = carryOver(round, next);
             if (next.getStatus() == RoundStatus.SCHEDULED) {
                 next.open();
+                roundEventPublisher.publish(new RoundEvent(RoundEventType.OPENED, next.getSeq()));
             }
             log.info("회차 {} 발표: {}건 이월, 회차 {} {}", round.getSeq(), carried, next.getSeq(), next.getStatus());
         });

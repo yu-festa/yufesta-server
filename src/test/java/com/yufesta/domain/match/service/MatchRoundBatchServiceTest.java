@@ -5,10 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yufesta.common.cache.PublicCacheEvictor;
+import com.yufesta.domain.match.event.RoundEvent;
+import com.yufesta.domain.match.event.RoundEventPublisher;
+import com.yufesta.domain.match.event.RoundEventType;
 import com.yufesta.common.exception.CustomException;
 import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.appsetting.enums.SettingKey;
@@ -41,6 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -72,6 +77,9 @@ class MatchRoundBatchServiceTest {
     private PublicCacheEvictor cacheEvictor;
 
     @Mock
+    private RoundEventPublisher roundEventPublisher;
+
+    @Mock
     private NoticeService noticeService;
 
     private MatchRoundBatchService service;
@@ -87,7 +95,7 @@ class MatchRoundBatchServiceTest {
     void setUp() {
         service = new MatchRoundBatchService(
                 matchRoundRepository, applicationRepository, matchRepository, blockRepository, appSettingReader,
-                cacheEvictor, noticeService, Clock.fixed(NOW.atZone(KST).toInstant(), KST)
+                cacheEvictor, noticeService, roundEventPublisher, Clock.fixed(NOW.atZone(KST).toInstant(), KST)
         );
         round1 = round(1L, 1, PUBLISH_1);
         round2 = round(2L, 2, PUBLISH_2);
@@ -260,6 +268,10 @@ class MatchRoundBatchServiceTest {
             assertThat(copy.getTags()).isEqualTo(m3.getTags());
             assertThat(copy.getAgreedAt()).isEqualTo(m3.getAgreedAt());
         });
+        // 발표와 함께 다음 회차가 열린다. 연결된 화면에 두 가지를 순서대로 알린다
+        InOrder events = inOrder(roundEventPublisher);
+        events.verify(roundEventPublisher).publish(new RoundEvent(RoundEventType.PUBLISHED, 1));
+        events.verify(roundEventPublisher).publish(new RoundEvent(RoundEventType.OPENED, 2));
     }
 
     @Test

@@ -37,6 +37,18 @@ app:
     # 회차 자동 오픈·마감·발표(RoundScheduler). 수동 API로만 확인하려면 false
     enabled: ${SCHEDULER_ENABLED:true}
     round-tick: PT10S
+  sse:
+    # 태스크 하나가 받는 연결 수 상한. 넘으면 503을 주고 프론트는 폴링으로 동작한다
+    max-connections: ${SSE_MAX_CONNECTIONS:3000}
+    # ALB가 60초 동안 조용한 연결을 끊는다. 그보다 짧게 빈 메시지를 보낸다
+    keep-alive: PT25S
+    # 연결 하나의 최대 수명. 끝나면 브라우저가 다시 연결한다
+    connection-ttl: PT30M
+    # 다른 태스크의 연결에도 전달하려면 켠다(Redis Pub/Sub). 끄면 자기 태스크의 연결에만 보낸다
+    pubsub-enabled: ${SSE_PUBSUB_ENABLED:true}
+    # Pub/Sub로 받지 못한 변화를 챙기는 주기 확인
+    watch-enabled: ${SSE_WATCH_ENABLED:true}
+    watch-interval: PT3S
   cache:
     # 응답 캐시 전역 스위치. 문제가 생기면 이 값만 false로 바꿔 즉시 DB 경로로 되돌린다
     enabled: ${CACHE_ENABLED:true}
