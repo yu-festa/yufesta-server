@@ -94,6 +94,29 @@ class NoticeServiceTest {
     }
 
     @Test
+    void 인스타팅_발표_시_시스템_공지를_생성한다() {
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> {
+            Notice notice = invocation.getArgument(0);
+            ReflectionTestUtils.setField(notice, "id", 10L);
+            return notice;
+        });
+
+        NoticeResponse result = noticeService.createMatchResultPublished(1);
+
+        assertThat(result)
+                .extracting(NoticeResponse::title, NoticeResponse::body, NoticeResponse::banner)
+                .containsExactly(
+                        "인스타팅 1회차 매칭 결과 발표",
+                        "인스타팅 1회차 매칭 결과가 발표되었습니다. 내 프로필에서 결과를 확인해 주세요.",
+                        false
+                );
+        org.mockito.ArgumentCaptor<Notice> captor = org.mockito.ArgumentCaptor.forClass(Notice.class);
+        verify(noticeRepository).save(captor.capture());
+        assertThat(captor.getValue().getCreatedBy()).isNull();
+        verify(cacheEvictor).evictNotices(10L);
+    }
+
+    @Test
     void 운영자가_공지를_수정한다() {
         Notice notice = notice(1L, "축제 안내", false, LocalDateTime.of(2026, 10, 2, 14, 0));
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));

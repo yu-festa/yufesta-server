@@ -51,11 +51,13 @@ EXIT_CODE="$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
   --query 'tasks[0].containers[0].exitCode' --output text)"
 
 echo "── 결과 (task ${TASK_ID}, exit ${EXIT_CODE})"
+# --output text는 로그 줄들을 탭으로 이어 붙여 표가 한 줄로 뭉개진다. JSON으로 받아 줄마다 출력한다
 OUT=""
 for _ in 1 2 3 4 5 6; do
   OUT="$(aws logs get-log-events \
     --log-group-name "$LOG_GROUP" --log-stream-name "dbshell/dbshell/${TASK_ID}" \
-    --limit 500 --query 'events[].message' --output text 2>/dev/null || true)"
+    --limit 500 --query 'events[].message' --output json 2>/dev/null \
+    | python3 -c 'import json, sys; print("\n".join(json.load(sys.stdin)))' 2>/dev/null || true)"
   if [ -n "$OUT" ]; then break; fi
   sleep 5
 done

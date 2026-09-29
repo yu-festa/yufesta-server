@@ -11,7 +11,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,13 +42,16 @@ public class ContentModerationService {
 
     private final AppSettingReader appSettingReader;
     private final OpenAiModerationClient openAiModerationClient;
+    private final KoreanContentPolicy koreanContentPolicy;
 
     public ContentModerationService(
             AppSettingReader appSettingReader,
-            OpenAiModerationClient openAiModerationClient
+            OpenAiModerationClient openAiModerationClient,
+            KoreanContentPolicy koreanContentPolicy
     ) {
         this.appSettingReader = appSettingReader;
         this.openAiModerationClient = openAiModerationClient;
+        this.koreanContentPolicy = koreanContentPolicy;
     }
 
     /** 외부 호출 없이 개인 연락 수단과 운영 금칙어를 먼저 차단한다. */
@@ -62,13 +64,8 @@ public class ContentModerationService {
             reject("LOCAL_PATTERN", content);
         }
 
-        String normalized = content.toLowerCase(Locale.ROOT);
-        boolean containsBannedWord = appSettingReader.getList(SettingKey.FILTER_BANNED_WORDS).stream()
-                .map(word -> word.toLowerCase(Locale.ROOT))
-                .anyMatch(normalized::contains);
-        if (containsBannedWord) {
-            reject("BANNED_WORD", content);
-        }
+        koreanContentPolicy.findViolation(content, appSettingReader.getList(SettingKey.FILTER_BANNED_WORDS))
+                .ifPresent(violation -> reject(violation.name(), content));
     }
 
     /**

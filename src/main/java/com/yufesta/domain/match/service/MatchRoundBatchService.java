@@ -21,6 +21,7 @@ import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.BlockRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.match.repository.MatchRoundRepository;
+import com.yufesta.domain.notice.service.NoticeService;
 import com.yufesta.domain.timetable.entity.TimetableSlot;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -52,6 +53,7 @@ public class MatchRoundBatchService {
     private final BlockRepository blockRepository;
     private final AppSettingReader appSettingReader;
     private final PublicCacheEvictor cacheEvictor;
+    private final NoticeService noticeService;
     private final Clock clock;
     private final MatchingEngine engine = new MatchingEngine();
 
@@ -62,6 +64,7 @@ public class MatchRoundBatchService {
             BlockRepository blockRepository,
             AppSettingReader appSettingReader,
             PublicCacheEvictor cacheEvictor,
+            NoticeService noticeService,
             Clock clock
     ) {
         this.matchRoundRepository = matchRoundRepository;
@@ -70,6 +73,7 @@ public class MatchRoundBatchService {
         this.blockRepository = blockRepository;
         this.appSettingReader = appSettingReader;
         this.cacheEvictor = cacheEvictor;
+        this.noticeService = noticeService;
         this.clock = clock;
     }
 
@@ -117,6 +121,7 @@ public class MatchRoundBatchService {
             }
             log.info("회차 {} 발표: {}건 이월, 회차 {} {}", round.getSeq(), carried, next.getSeq(), next.getStatus());
         });
+        noticeService.createMatchResultPublished(round.getSeq());
         // 발표는 홈이 기다리는 순간이다. TTL 2초를 기다리게 두지 않는다
         cacheEvictor.evictMatchSummary();
         return AdminMatchRoundResponse.from(round);

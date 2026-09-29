@@ -73,6 +73,24 @@ public class NoticeService {
     }
 
     /**
+     * 인스타팅 회차 발표와 같은 트랜잭션에서 시스템 공지를 생성한다.
+     * <p>스케줄러 발표에는 운영자 사용자가 없으므로 작성자는 비워 두고, 긴급 배너로는 노출하지 않는다.
+     */
+    @Transactional
+    public NoticeResponse createMatchResultPublished(int roundSeq) {
+        Notice notice = Notice.builder()
+                .title("인스타팅 %d회차 매칭 결과 발표".formatted(roundSeq))
+                .body("인스타팅 %d회차 매칭 결과가 발표되었습니다. 내 프로필에서 결과를 확인해 주세요."
+                        .formatted(roundSeq))
+                .banner(false)
+                .createdBy(null)
+                .build();
+        NoticeResponse response = NoticeResponse.from(noticeRepository.save(notice));
+        cacheEvictor.evictNotices(response.id());
+        return response;
+    }
+
+    /**
      * 운영자 공지의 제목, 본문, 긴급 배너 노출 여부를 수정한다(FR-NT-01, 03).
      * @throws CustomException UNAUTHORIZED, NOTICE_NOT_FOUND
      */

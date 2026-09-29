@@ -13,6 +13,7 @@ import com.yufesta.domain.appsetting.service.AppSettingReader;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +28,9 @@ class ContentModerationServiceTest {
 
     @Mock
     private OpenAiModerationClient openAiModerationClient;
+
+    @Mock
+    private KoreanContentPolicy koreanContentPolicy;
 
     @InjectMocks
     private ContentModerationService contentModerationService;
@@ -49,6 +53,8 @@ class ContentModerationServiceTest {
     @Test
     void 설정된_금칙어를_포함하면_차단한다() {
         when(appSettingReader.getList(SettingKey.FILTER_BANNED_WORDS)).thenReturn(List.of("금칙어"));
+        when(koreanContentPolicy.findViolation("이 문장에는 금칙어가 있어요", List.of("금칙어")))
+                .thenReturn(Optional.of(LocalModerationViolation.BANNED_WORD));
 
         assertThatThrownBy(() -> contentModerationService.validateLocal("이 문장에는 금칙어가 있어요"))
                 .isInstanceOf(CustomException.class)

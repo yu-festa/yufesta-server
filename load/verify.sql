@@ -53,10 +53,14 @@ SELECT '1-4 다른 회차 신청끼리 매칭', COUNT(*) FROM `matches` m
   JOIN applications a2 ON a2.id = m.partner_application_id
   WHERE a1.round_id <> m.round_id OR a2.round_id <> m.round_id
 UNION ALL
-SELECT '1-5 차단 쌍이 매칭됨(양방향)', COUNT(*) FROM user_pairs up
+-- 신고는 발표된 결과를 보고 하는 것이라, 신고한 상대와의 매칭은 신고보다 먼저 존재한다(정상).
+-- 위반은 신고가 이미 있었는데 그 뒤에 돈 배치가 둘을 다시 묶은 경우뿐이다
+SELECT '1-5 차단 쌍이 매칭됨(양방향, 신고 뒤에 돈 배치만)', COUNT(*) FROM user_pairs up
+  JOIN match_rounds r ON r.id = up.round_id
   WHERE EXISTS (SELECT 1 FROM blocks b
-                WHERE (b.reporter_user_id = up.user_lo AND b.target_user_id = up.user_hi)
-                   OR (b.reporter_user_id = up.user_hi AND b.target_user_id = up.user_lo))
+                WHERE ((b.reporter_user_id = up.user_lo AND b.target_user_id = up.user_hi)
+                    OR (b.reporter_user_id = up.user_hi AND b.target_user_id = up.user_lo))
+                  AND b.created_at < r.executed_at)
 UNION ALL
 SELECT '1-6 이전 회차에 매칭된 쌍이 다시 매칭', COUNT(*) FROM (
     SELECT user_lo, user_hi FROM user_pairs GROUP BY user_lo, user_hi HAVING COUNT(DISTINCT round_id) > 1

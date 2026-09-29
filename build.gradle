@@ -53,3 +53,20 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+tasks.register('moderationEvaluation', JavaExec) {
+	group = 'verification'
+	description = 'Runs the private moderation dataset and writes an aggregate report without source text.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.yufesta.domain.moderation.evaluation.ModerationEvaluationRunner'
+
+	def dataset = providers.gradleProperty('moderationDataset')
+	def report = providers.gradleProperty('moderationReport')
+			.orElse(layout.buildDirectory.file('reports/moderation/evaluation.json').map { it.asFile.absolutePath })
+	doFirst {
+		if (!dataset.present) {
+			throw new GradleException('-PmoderationDataset=<private-jsonl-path> is required')
+		}
+		args = [dataset.get(), report.get()]
+	}
+}

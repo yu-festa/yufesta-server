@@ -21,6 +21,7 @@ import com.yufesta.domain.match.repository.ApplicationRepository;
 import com.yufesta.domain.match.repository.BlockRepository;
 import com.yufesta.domain.match.repository.MatchRepository;
 import com.yufesta.domain.match.repository.MatchRoundRepository;
+import com.yufesta.domain.notice.repository.NoticeRepository;
 import com.yufesta.domain.place.entity.Place;
 import com.yufesta.domain.place.enums.PlaceCategory;
 import com.yufesta.domain.place.repository.PlaceRepository;
@@ -97,6 +98,9 @@ class MatchRoundBatchInvariantTest {
     private AppSettingRepository appSettingRepository;
 
     @Autowired
+    private NoticeRepository noticeRepository;
+
+    @Autowired
     private AppSettingReader appSettingReader;
 
     @Autowired
@@ -112,7 +116,7 @@ class MatchRoundBatchInvariantTest {
         // 테스트마다 커밋이 남으므로 FK 순서대로 비우고 다시 시드한다
         for (String table : List.of(
                 "matches", "blocks", "application_tags", "applications",
-                "timetable_slots", "places", "users", "match_rounds", "app_settings")) {
+                "timetable_slots", "places", "notices", "users", "match_rounds", "app_settings")) {
             em.createNativeQuery("delete from " + table).executeUpdate();
         }
         seedSettings();
@@ -196,6 +200,12 @@ class MatchRoundBatchInvariantTest {
         assertThat(unmatched.stream().filter(a -> a.getWantedSlot() != null
                 && a.getWantedSlot().getStartAt().isBefore(round2.getPublishAt()))).isNotEmpty();
         assertThat(matchRoundRepository.findBySeq(2).orElseThrow().getStatus().name()).isEqualTo("OPEN");
+        assertThat(noticeRepository.findAll()).singleElement().satisfies(notice -> {
+            assertThat(notice.getTitle()).isEqualTo("인스타팅 1회차 매칭 결과 발표");
+            assertThat(notice.getBody()).contains("내 프로필에서 결과를 확인해 주세요.");
+            assertThat(notice.isBanner()).isFalse();
+            assertThat(notice.getCreatedBy()).isNull();
+        });
 
         // 1회차에 매칭됐던 20쌍이 2회차에 다시 신청해도 서로 다시 붙지 않아야 한다(FR-MT-22)
         Set<Set<Long>> previousPairs = rejoinTwentyMatchedPairs();
