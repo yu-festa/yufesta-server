@@ -14,9 +14,11 @@ import com.yufesta.domain.lostitem.comment.repository.LostItemCommentRepository;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
 import com.yufesta.domain.moderation.service.ContentModerationService;
+import com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -157,6 +159,16 @@ public class LostItemCommentService {
         LostItemComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.LOST_ITEM_COMMENT_NOT_FOUND));
         return new ContentTargetStatus(comment.getReportCount(), comment.isHidden());
+    }
+
+    /** 운영자 신고 목록에 필요한 분실물 댓글 상태를 한 번에 조회한다. */
+    public Map<Long, ContentTargetStatus> getTargetStatusesForAdmin(Collection<Long> commentIds) {
+        if (commentIds.isEmpty()) {
+            return Map.of();
+        }
+        return ContentTargetStatusProjection.indexByTargetId(
+                commentRepository.findTargetStatusesByIdIn(commentIds)
+        );
     }
 
     private LostItemComment saveComment(

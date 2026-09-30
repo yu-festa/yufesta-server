@@ -62,6 +62,8 @@ TABLE = [
     ("hits", "AWS/ElastiCache", "CacheHits", "cache", "Sum", "{:.0f}"),
     ("redis_get", "AWS/ElastiCache", "GetTypeCmds", "cache", "Sum", "{:.0f}"),
     ("redis_set", "AWS/ElastiCache", "SetTypeCmds", "cache", "Sum", "{:.0f}"),
+    ("alb_conn", "AWS/ApplicationELB", "ActiveConnectionCount", "alb", "Sum", "{:.0f}"),
+    ("mem_avg", "AWS/ECS", "MemoryUtilization", "ecs", "Average", "{:.1f}"),
 ]
 
 
@@ -117,6 +119,12 @@ def graph(start, end, name, label, marks):
             metric("AWS/RDS", "DatabaseConnections", "rds", stat="Maximum", label="DB connections", color="#8c564b"),
             metric("AWS/ElastiCache", "CacheHits", "cache", stat="Sum", label="Cache hits per minute", yAxis="right", color="#17becf"),
         ], "% / connections", "hits/min"),
+        # ActiveConnectionCount는 브라우저→ALB와 ALB→태스크를 함께 센다. SSE 연결 1,000개면 2,000으로 보인다
+        "connections": widget("Open connections (ALB), App CPU and memory", [
+            metric("AWS/ApplicationELB", "ActiveConnectionCount", "alb", stat="Sum", label="ALB active connections", color="#1f77b4"),
+            metric("AWS/ECS", "CPUUtilization", "ecs", stat="Average", label="App CPU avg %", yAxis="right", color="#d62728"),
+            metric("AWS/ECS", "MemoryUtilization", "ecs", stat="Average", label="App memory %", yAxis="right", color="#9467bd"),
+        ], "connections", "%", 100),
     }
     for chart, body in charts.items():
         image = aws("cloudwatch", "get-metric-widget-image", "--metric-widget", json.dumps(body),

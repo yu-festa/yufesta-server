@@ -12,8 +12,11 @@ import com.yufesta.domain.cheer.entity.Cheer;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
 import com.yufesta.domain.cheer.repository.CheerRepository;
 import com.yufesta.domain.moderation.service.ContentModerationService;
+import com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,6 +91,16 @@ public class CheerService {
     public ContentTargetStatus getTargetStatusForAdmin(Long cheerId) {
         Cheer cheer = getCheerOrThrow(cheerId);
         return new ContentTargetStatus(cheer.getReportCount(), cheer.isHidden());
+    }
+
+    /** 운영자 신고 목록에 필요한 응원 메시지 상태를 한 번에 조회한다. */
+    public Map<Long, ContentTargetStatus> getTargetStatusesForAdmin(Collection<Long> cheerIds) {
+        if (cheerIds.isEmpty()) {
+            return Map.of();
+        }
+        return ContentTargetStatusProjection.indexByTargetId(
+                cheerRepository.findTargetStatusesByIdIn(cheerIds)
+        );
     }
 
     /**

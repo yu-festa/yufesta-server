@@ -1,7 +1,9 @@
 package com.yufesta.domain.lostitem.repository;
 
 import com.yufesta.domain.lostitem.entity.LostItem;
+import com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +19,17 @@ public interface LostItemRepository extends JpaRepository<LostItem, Long> {
 
     @EntityGraph(attributePaths = "image")
     List<LostItem> findAllByHiddenFalseOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query("""
+            select new com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection(
+                l.id, l.reportCount, l.hidden
+            )
+            from LostItem l
+            where l.id in :targetIds
+            """)
+    List<ContentTargetStatusProjection> findTargetStatusesByIdIn(
+            @Param("targetIds") Collection<Long> targetIds
+    );
 
     /** 같은 게시글의 신고 처리 순서를 보장하기 위해 행을 잠근다. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

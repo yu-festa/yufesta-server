@@ -18,7 +18,11 @@ import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -94,8 +98,13 @@ public class ContentReportService {
     ) {
         validatePage(page, size);
         Pageable pageable = PageRequest.of(page, size);
-        return findPage(reviewed, targetType, pageable).stream()
-                .map(report -> AdminContentReportResponse.from(report, getTargetStatus(report)))
+        List<ContentReport> reports = findPage(reviewed, targetType, pageable);
+        Map<ContentTargetType, Map<Long, ContentTargetStatus>> targetStatuses = loadTargetStatuses(reports);
+        return reports.stream()
+                .map(report -> AdminContentReportResponse.from(
+                        report,
+                        requireTargetStatus(report, targetStatuses)
+                ))
                 .toList();
     }
 
@@ -148,6 +157,47 @@ public class ContentReportService {
             case LOST_ITEM -> lostItemService.getTargetStatusForAdmin(report.getTargetId());
             case LOST_ITEM_COMMENT -> lostItemCommentService.getTargetStatusForAdmin(report.getTargetId());
         };
+    }
+
+    private Map<ContentTargetType, Map<Long, ContentTargetStatus>> loadTargetStatuses(
+            List<ContentReport> reports
+    ) {
+        Map<ContentTargetType, Set<Long>> targetIds = new EnumMap<>(ContentTargetType.class);
+        for (ContentReport report : reports) {
+            targetIds.computeIfAbsent(report.getTargetType(), ignored -> new HashSet<>())
+                    .add(report.getTargetId());
+        }
+
+        Map<ContentTargetType, Map<Long, ContentTargetStatus>> targetStatuses =
+                new EnumMap<>(ContentTargetType.class);
+        targetIds.forEach((type, ids) -> targetStatuses.put(type, loadTargetStatuses(type, ids)));
+        return targetStatuses;
+    }
+
+    private Map<Long, ContentTargetStatus> loadTargetStatuses(ContentTargetType targetType, Set<Long> targetIds) {
+        return switch (targetType) {
+            case CHEER -> cheerService.getTargetStatusesForAdmin(targetIds);
+            case LOST_ITEM -> lostItemService.getTargetStatusesForAdmin(targetIds);
+            case LOST_ITEM_COMMENT -> lostItemCommentService.getTargetStatusesForAdmin(targetIds);
+        };
+    }
+
+    private static ContentTargetStatus requireTargetStatus(
+            ContentReport report,
+            Map<ContentTargetType, Map<Long, ContentTargetStatus>> targetStatuses
+    ) {
+        ContentTargetStatus targetStatus = targetStatuses
+                .getOrDefault(report.getTargetType(), Map.of())
+                .get(report.getTargetId());
+        if (targetStatus != null) {
+            return targetStatus;
+        }
+        ErrorCode errorCode = switch (report.getTargetType()) {
+            case CHEER -> ErrorCode.CHEER_NOT_FOUND;
+            case LOST_ITEM -> ErrorCode.LOST_ITEM_NOT_FOUND;
+            case LOST_ITEM_COMMENT -> ErrorCode.LOST_ITEM_COMMENT_NOT_FOUND;
+        };
+        throw new CustomException(errorCode);
     }
 
     private static void validatePage(int page, int size) {

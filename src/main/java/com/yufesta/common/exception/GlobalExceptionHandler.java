@@ -18,6 +18,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -122,6 +123,14 @@ public class GlobalExceptionHandler {
             NoResourceFoundException exception
     ) {
         return response(ErrorCode.RESOURCE_NOT_FOUND);
+    }
+
+    // SSE 화면을 떠난 브라우저의 연결에 서버가 쓰려 할 때 난다. 장애가 아니라 일상이고 응답을 받을 상대도 없다.
+    // 아래 Exception 처리로 흘러가면 연결이 끊길 때마다 ERROR와 스택이 남아 진짜 오류가 묻힌다
+    // (2026-09-29 운영에서 연결 1,000개를 닫자 ERROR 1,000여 건)
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException exception) {
+        log.debug("클라이언트가 연결을 끊었다: {}", exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

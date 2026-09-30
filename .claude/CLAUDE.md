@@ -296,7 +296,7 @@ public class ClockConfig {
 - 메시지는 한국어, 사용자에게 보여줄 문장. 스택·SQL·내부 식별자를 메시지에 넣지 않는다. 필터에 걸린 내용은 사유를 알려주지 않고 "등록할 수 없는 내용이에요"(FR-CH-03).
 - 로그: 5xx만 `error`+스택. 4xx는 `warn` 없이 `info` 이하. 토큰·쿠키·인스타 ID·providerUserId는 어떤 레벨에도 남기지 않는다.
 - 인증 실패 401·인가 실패 403은 SecurityConfig의 `exceptionHandling`에서 `ErrorResponse` JSON으로 낸다. 로그인 페이지 리다이렉트 금지(API 서버다).
-- `GlobalExceptionHandler` 매핑: `HttpMessageNotReadableException`→INVALID_REQUEST_BODY, `MissingServletRequestParameterException`→MISSING_REQUEST_PARAMETER, `MethodArgumentTypeMismatchException`→INVALID_PARAMETER_TYPE, `HttpRequestMethodNotSupportedException`→METHOD_NOT_ALLOWED, `ConstraintViolationException`·`HandlerMethodValidationException`(Spring 6.1+ 컨트롤러 파라미터 제약)→INVALID_INPUT_VALUE, `MaxUploadSizeExceededException`→PHOTO_TOO_LARGE. 컨트롤러 밖(필터)에서 난 예외는 `ErrorResponseController`(`/error`)가 같은 `ErrorResponse`로 낸다.
+- `GlobalExceptionHandler` 매핑: `HttpMessageNotReadableException`→INVALID_REQUEST_BODY, `MissingServletRequestParameterException`→MISSING_REQUEST_PARAMETER, `MethodArgumentTypeMismatchException`→INVALID_PARAMETER_TYPE, `HttpRequestMethodNotSupportedException`→METHOD_NOT_ALLOWED, `ConstraintViolationException`·`HandlerMethodValidationException`(Spring 6.1+ 컨트롤러 파라미터 제약)→INVALID_INPUT_VALUE, `MaxUploadSizeExceededException`→PHOTO_TOO_LARGE. `AsyncRequestNotUsableException`(브라우저가 떠난 SSE 연결에 쓰려 할 때)은 응답을 만들지 않고 debug로만 남긴다. 공통 처리로 흘러가면 연결이 끊길 때마다 ERROR가 남는다. 컨트롤러 밖(필터)에서 난 예외는 `ErrorResponseController`(`/error`)가 같은 `ErrorResponse`로 낸다.
 
 ## 7. 인증·인가
 

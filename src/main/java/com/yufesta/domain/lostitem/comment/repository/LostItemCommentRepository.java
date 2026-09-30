@@ -1,7 +1,9 @@
 package com.yufesta.domain.lostitem.comment.repository;
 
 import com.yufesta.domain.lostitem.comment.entity.LostItemComment;
+import com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -16,6 +18,17 @@ public interface LostItemCommentRepository extends JpaRepository<LostItemComment
 
     @EntityGraph(attributePaths = {"author", "parent"})
     List<LostItemComment> findAllByLostItem_IdAndHiddenFalseOrderByCreatedAtAsc(Long lostItemId);
+
+    @Query("""
+            select new com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection(
+                c.id, c.reportCount, c.hidden
+            )
+            from LostItemComment c
+            where c.id in :targetIds
+            """)
+    List<ContentTargetStatusProjection> findTargetStatusesByIdIn(
+            @Param("targetIds") Collection<Long> targetIds
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from LostItemComment c where c.id = :commentId")

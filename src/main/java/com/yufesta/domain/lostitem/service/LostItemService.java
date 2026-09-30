@@ -12,10 +12,13 @@ import com.yufesta.domain.lostitem.dto.response.LostItemResponse;
 import com.yufesta.domain.lostitem.entity.LostItem;
 import com.yufesta.domain.lostitem.repository.LostItemRepository;
 import com.yufesta.domain.moderation.service.ContentModerationService;
+import com.yufesta.domain.report.dto.projection.ContentTargetStatusProjection;
 import com.yufesta.domain.report.dto.response.ContentTargetStatus;
 import com.yufesta.domain.user.entity.User;
 import com.yufesta.domain.user.service.UserService;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -176,6 +179,16 @@ public class LostItemService {
     public ContentTargetStatus getTargetStatusForAdmin(Long lostItemId) {
         LostItem lostItem = getLostItemOrThrow(lostItemId);
         return new ContentTargetStatus(lostItem.getReportCount(), lostItem.isHidden());
+    }
+
+    /** 운영자 신고 목록에 필요한 분실물 게시글 상태를 한 번에 조회한다. */
+    public Map<Long, ContentTargetStatus> getTargetStatusesForAdmin(Collection<Long> lostItemIds) {
+        if (lostItemIds.isEmpty()) {
+            return Map.of();
+        }
+        return ContentTargetStatusProjection.indexByTargetId(
+                lostItemRepository.findTargetStatusesByIdIn(lostItemIds)
+        );
     }
 
     private LostItem requireOwnedLostItem(Long userId, Long lostItemId) {

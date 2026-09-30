@@ -28,6 +28,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -170,7 +172,8 @@ class ContentReportServiceTest {
         when(contentReportRepository.findAllByTargetTypeAndReviewedAtIsNullOrderByCreatedAtDesc(
                 org.mockito.ArgumentMatchers.eq(ContentTargetType.CHEER), any()))
                 .thenReturn(List.of(report));
-        when(cheerService.getTargetStatusForAdmin(10L)).thenReturn(new ContentTargetStatus(2, true));
+        when(cheerService.getTargetStatusesForAdmin(Set.of(10L)))
+                .thenReturn(Map.of(10L, new ContentTargetStatus(2, true)));
 
         List<AdminContentReportResponse> result = contentReportService.getReports(false, ContentTargetType.CHEER, 0, 20);
 
@@ -198,6 +201,18 @@ class ContentReportServiceTest {
         assertThat(report.getReviewedAt()).isEqualTo(now);
         assertThat(result.reviewedAt()).isEqualTo(now);
         assertThat(result.targetReportCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 운영자_신고_목록의_대상이_사라졌으면_대상유형에_맞는_오류를_반환한다() {
+        ContentReport report = report(5L, ContentTargetType.LOST_ITEM_COMMENT, 10L, null);
+        when(contentReportRepository.findAllByOrderByCreatedAtDesc(any())).thenReturn(List.of(report));
+        when(lostItemCommentService.getTargetStatusesForAdmin(Set.of(10L))).thenReturn(Map.of());
+
+        assertThatThrownBy(() -> contentReportService.getReports(null, null, 0, 20))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.LOST_ITEM_COMMENT_NOT_FOUND);
     }
 
     @Test
