@@ -65,6 +65,8 @@ app:
       api-key: ${OPENAI_API_KEY:}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
       timeout: 2s
+      # 한국어 문맥과 우회 표현을 서비스 정책으로 분류하는 소형 모델
+      model: ${OPENAI_CONTENT_MODEL:gpt-4.1-mini}
   storage:
     # 이미지 저장소. local(기본, ./uploads에 저장하고 /uploads/**로 서빙) | s3(운영, 태스크 역할 자격 증명)
     type: ${IMAGE_STORAGE:local}

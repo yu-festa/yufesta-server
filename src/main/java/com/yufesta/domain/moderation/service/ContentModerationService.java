@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-/** 저장 전 콘텐츠를 정규식·금칙어·OpenAI 모더레이션 순서로 검사한다. */
+/** 저장 전 콘텐츠를 정규식·금칙어·OpenAI 의미 분류 순서로 검사한다. */
 @Service
 public class ContentModerationService {
 
@@ -41,16 +41,16 @@ public class ContentModerationService {
     );
 
     private final AppSettingReader appSettingReader;
-    private final OpenAiModerationClient openAiModerationClient;
+    private final OpenAiContentClassifierClient openAiContentClassifierClient;
     private final KoreanContentPolicy koreanContentPolicy;
 
     public ContentModerationService(
             AppSettingReader appSettingReader,
-            OpenAiModerationClient openAiModerationClient,
+            OpenAiContentClassifierClient openAiContentClassifierClient,
             KoreanContentPolicy koreanContentPolicy
     ) {
         this.appSettingReader = appSettingReader;
-        this.openAiModerationClient = openAiModerationClient;
+        this.openAiContentClassifierClient = openAiContentClassifierClient;
         this.koreanContentPolicy = koreanContentPolicy;
     }
 
@@ -69,7 +69,8 @@ public class ContentModerationService {
     }
 
     /**
-     * OpenAI 모더레이션 점수를 검사한다. 외부 API를 사용하지 않거나 호출이 실패하면 작성은 허용하되
+     * OpenAI 소형 모델의 서비스 정책 판정과 신뢰도를 검사한다. 외부 API를 사용하지 않거나 호출이 실패하면
+     * 작성은 허용하되
      * 운영자가 나중에 확인할 수 있도록 SKIPPED 상태를 반환한다.
      */
     public ModerationStatus moderateByLlm(String content) {
@@ -83,8 +84,9 @@ public class ContentModerationService {
         }
 
         try {
-            if (openAiModerationClient.exceedsThreshold(content, threshold)) {
-                reject("LLM_THRESHOLD", content);
+            ContentClassification classification = openAiContentClassifierClient.classify(content);
+            if (classification.blocksAt(threshold)) {
+                reject("LLM_" + classification.category().name(), content);
             }
             return ModerationStatus.PASSED;
         } catch (OpenAiModerationException exception) {

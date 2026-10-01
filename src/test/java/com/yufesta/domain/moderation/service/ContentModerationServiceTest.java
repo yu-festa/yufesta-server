@@ -27,7 +27,7 @@ class ContentModerationServiceTest {
     private AppSettingReader appSettingReader;
 
     @Mock
-    private OpenAiModerationClient openAiModerationClient;
+    private OpenAiContentClassifierClient openAiContentClassifierClient;
 
     @Mock
     private KoreanContentPolicy koreanContentPolicy;
@@ -69,14 +69,18 @@ class ContentModerationServiceTest {
         ModerationStatus result = contentModerationService.moderateByLlm("축제 파이팅!");
 
         assertThat(result).isEqualTo(ModerationStatus.PASSED);
-        verify(openAiModerationClient, never()).exceedsThreshold(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(openAiContentClassifierClient, never()).classify(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void LLM_점수가_임계값_이상이면_차단한다() {
+    void LLM이_차단으로_판정하고_신뢰도가_임계값_이상이면_차단한다() {
         when(appSettingReader.getBoolean(SettingKey.FILTER_LLM_ENABLED)).thenReturn(true);
         when(appSettingReader.getDecimal(SettingKey.FILTER_LLM_THRESHOLD)).thenReturn(new BigDecimal("0.5"));
-        when(openAiModerationClient.exceedsThreshold("위험한 문장", new BigDecimal("0.5"))).thenReturn(true);
+        when(openAiContentClassifierClient.classify("위험한 문장")).thenReturn(new ContentClassification(
+                ContentClassification.Decision.BLOCK,
+                ContentClassification.Category.THREAT,
+                new BigDecimal("0.91")
+        ));
 
         assertThatThrownBy(() -> contentModerationService.moderateByLlm("위험한 문장"))
                 .isInstanceOf(CustomException.class)
@@ -85,10 +89,24 @@ class ContentModerationServiceTest {
     }
 
     @Test
+    void LLM이_차단으로_판정해도_신뢰도가_임계값_미만이면_통과한다() {
+        when(appSettingReader.getBoolean(SettingKey.FILTER_LLM_ENABLED)).thenReturn(true);
+        when(appSettingReader.getDecimal(SettingKey.FILTER_LLM_THRESHOLD)).thenReturn(new BigDecimal("0.5"));
+        when(openAiContentClassifierClient.classify("애매한 문장")).thenReturn(new ContentClassification(
+                ContentClassification.Decision.BLOCK,
+                ContentClassification.Category.OTHER,
+                new BigDecimal("0.49")
+        ));
+
+        assertThat(contentModerationService.moderateByLlm("애매한 문장"))
+                .isEqualTo(ModerationStatus.PASSED);
+    }
+
+    @Test
     void LLM_호출이_실패하면_SKIPPED로_저장하도록_표시한다() {
         when(appSettingReader.getBoolean(SettingKey.FILTER_LLM_ENABLED)).thenReturn(true);
         when(appSettingReader.getDecimal(SettingKey.FILTER_LLM_THRESHOLD)).thenReturn(new BigDecimal("0.5"));
-        when(openAiModerationClient.exceedsThreshold("축제 파이팅!", new BigDecimal("0.5")))
+        when(openAiContentClassifierClient.classify("축제 파이팅!"))
                 .thenThrow(new OpenAiModerationException("timeout"));
 
         assertThat(contentModerationService.moderateByLlm("축제 파이팅!"))

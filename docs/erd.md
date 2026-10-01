@@ -411,8 +411,8 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | report.hide_threshold | 2 | 콘텐츠 신고 누적 자동 숨김 기준 |
 | nickname.adjectives / nickname.animals | 단어 목록 | 자동 닉네임 |
 | filter.banned_words | (빈 값) | 금칙어 목록, 쉼표 구분 |
-| filter.llm.enabled | 1 | LLM 모더레이션 API 사용 여부. 장애 시 0으로 |
-| filter.llm.threshold | 0.5 | 카테고리 점수 차단 임계값(FR-CF-06 측정 후 조정) |
+| filter.llm.enabled | 1 | 소형 LLM 콘텐츠 문맥 분류 사용 여부. 장애 시 0으로 |
+| filter.llm.threshold | 0.5 | `BLOCK` 판정 신뢰도 차단 임계값(FR-CF-06 측정 후 조정) |
 | ratelimit.cheer.anon_per_minute | 1 | 응원 메시지 익명 키당 분당 작성 수 |
 | ratelimit.cheer.ip_per_minute | 10 | 응원 메시지 IP당 분당 작성 수(공용 와이파이 고려) |
 | ratelimit.lostitem.per_minute | 1 | 분실물 회원당 분당 작성 수 |
@@ -454,7 +454,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 - **신고 누적**: `blocks` INSERT 트랜잭션 안에서 대상 카운트 → 임계값이면 `users.matching_blocked_at` 갱신 + 해당 회차 `applications` 삭제
 - **report_count**: `content_reports` INSERT와 같은 트랜잭션에서 `report_count = report_count + 1`. 재계산 배치로 정합성 보정 가능
 - **익명 키**: 응원 메시지 첫 작성 시 서버가 UUID 쿠키(`anon_key`, HttpOnly, 30일)를 발급. 저장은 SHA-256 해시만. 속도 제한은 Redis `INCR anon:{hash}` TTL 60초 + `INCR ip:{ip}` TTL 60초. 운영자 차단은 Redis 집합 또는 `app_settings`가 아닌 별도 캐시 키로(차단 목록이 길어지면 테이블 분리 검토)
-- **콘텐츠 필터 파이프라인**: 정규식 → 한국어 정규화·설정 금칙어·욕설·위협·집단 비하 조합 규칙 → LLM API(`filter.llm.enabled`). 응원 메시지·분실물·분실물 댓글에 적용한다. LLM 단계 타임아웃 2초, 실패 시 `moderation_status = 'SKIPPED'`로 저장하고 운영자 검토 목록에 노출. 외부 API에는 본문만 전송
+- **콘텐츠 필터 파이프라인**: 정규식 → 한국어 정규화·설정 금칙어·욕설·위협·집단 비하 조합 규칙 → 소형 LLM 문맥 분류(`filter.llm.enabled`). 응원 메시지·분실물·분실물 댓글에 적용한다. LLM은 `ALLOW/BLOCK`·위반 유형·신뢰도를 구조화해 반환하고, `BLOCK`이면서 신뢰도가 임계값 이상일 때 저장을 거절한다. 타임아웃은 2초며 실패 시 `moderation_status = 'SKIPPED'`로 저장하고 운영자 검토 목록에 노출한다. 외부 API에는 본문만 전송한다
 - **인덱스**: 발표 순간 조회(`matches.application_id`), 회차별 풀(`applications(round_id, gender)`), 이월 추적(`applications.source_application_id`), 티커(`cheers.created_at`), 익명 키 일괄 처리(`cheers.writer_key_hash`)
 - **운영자 role 부여**: 로그인 콜백에서 `(provider, provider_user_id)`가 `admin.allowlist`에 있으면 role 설정. role을 바꾸는 사용자 API·엔드포인트는 만들지 않는다
 - **운영자 권한 검사**: 운영자 API에서 JWT의 uid로 `users.role` 조회(캐시 가능). 회차 발표·설정 변경은 `OWNER`만
@@ -473,3 +473,4 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 | v1.5 | 2026-09-25 | 분실물 댓글·1단계 답글과 글 단위 익명 별칭 테이블을 추가하고, 댓글을 콘텐츠 신고 대상으로 확장(V6) |
 | v1.6 | 2026-09-26 | 분실물 게시글당 이미지 1장을 저장하는 `lost_item_images` 테이블과 유니크 제약을 추가(V7) |
 | v1.7 | 2026-09-28 | 기존 Web Push V8 마이그레이션 이력을 보존하고, 회원의 소셜 표시 이름과 프로필 사진 URL을 저장하도록 `users`를 확장(V9) |
+| v1.8 | 2026-10-01 | 콘텐츠 외부 필터를 소형 LLM 문맥 분류로 교체하고 `filter.llm.threshold`를 `BLOCK` 판정 신뢰도 기준으로 변경(V10) |

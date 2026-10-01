@@ -7,11 +7,11 @@ import org.springframework.context.annotation.Configuration;
 
 /** 외부 모더레이션 호출에만 쓰는 짧은 연결 타임아웃 HTTP 클라이언트 설정. */
 @Configuration
-@EnableConfigurationProperties(OpenAiModerationProperties.class)
+@EnableConfigurationProperties(OpenAiContentProperties.class)
 public class ModerationConfig {
 
     @Bean
-    public HttpClient openAiModerationHttpClient(OpenAiModerationProperties properties) {
+    public HttpClient openAiContentHttpClient(OpenAiContentProperties properties) {
         return HttpClient.newBuilder()
                 .connectTimeout(properties.timeout())
                 .build();

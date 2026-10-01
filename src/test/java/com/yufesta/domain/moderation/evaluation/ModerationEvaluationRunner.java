@@ -8,11 +8,11 @@ import com.yufesta.common.exception.error.ErrorCode;
 import com.yufesta.domain.appsetting.enums.SettingKey;
 import com.yufesta.domain.appsetting.service.AppSettingReader;
 import com.yufesta.domain.cheer.enums.ModerationStatus;
-import com.yufesta.domain.moderation.config.OpenAiModerationProperties;
+import com.yufesta.domain.moderation.config.OpenAiContentProperties;
 import com.yufesta.domain.moderation.service.ContentModerationService;
 import com.yufesta.domain.moderation.service.KoreanContentNormalizer;
 import com.yufesta.domain.moderation.service.KoreanContentPolicy;
-import com.yufesta.domain.moderation.service.OpenAiModerationClient;
+import com.yufesta.domain.moderation.service.OpenAiContentClassifierClient;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -29,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 public final class ModerationEvaluationRunner {
 
     private static final BigDecimal THRESHOLD = new BigDecimal("0.5");
-    private static final String MODEL = "omni-moderation-latest";
+    private static final String MODEL = System.getenv().getOrDefault("OPENAI_CONTENT_MODEL", "gpt-4.1-mini");
 
     private ModerationEvaluationRunner() {
     }
@@ -109,13 +109,14 @@ public final class ModerationEvaluationRunner {
             throw new IllegalStateException("OPENAI_API_KEY is required");
         }
         URI baseUrl = URI.create(System.getenv().getOrDefault("OPENAI_BASE_URL", "https://api.openai.com/v1"));
-        OpenAiModerationProperties properties = new OpenAiModerationProperties(
+        OpenAiContentProperties properties = new OpenAiContentProperties(
                 apiKey,
                 baseUrl,
-                Duration.ofSeconds(2)
+                Duration.ofSeconds(2),
+                MODEL
         );
         HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.timeout()).build();
-        OpenAiModerationClient client = new OpenAiModerationClient(httpClient, objectMapper, properties);
+        OpenAiContentClassifierClient client = new OpenAiContentClassifierClient(httpClient, objectMapper, properties);
 
         AppSettingReader settings = mock(AppSettingReader.class);
         when(settings.getList(SettingKey.FILTER_BANNED_WORDS)).thenReturn(List.of());

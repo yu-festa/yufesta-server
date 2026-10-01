@@ -5,6 +5,7 @@
 
 - `dbsql.sh` — 아래 SQL 파일들을 운영 RDS에서 파일 그대로 실행하고 결과를 출력한다(붙여넣기 불필요).
 - `token.sh` — 운영자 `access_token`을 직접 서명해 출력한다(지표 수집용 쿠키가 2시간마다 만료되므로).
+- `recent-users.sql` · `grant-staff.sql` — 최근 가입 회원 조회와 운영자(STAFF) 승격. 허용 목록은 첫 로그인 때만 보므로 이미 가입한 사람은 role도 함께 바꾼다.
 - `reset-rounds.sql` — ⚠ 회차를 처음 상태로 되돌린다. 모든 신청·매칭이 지워지므로 측정·리허설 뒤 복구용으로만.
 - `sse/sse-clients.py` — SSE 연결을 N개 열어 두고 회차 이벤트가 각 연결에 도착하는 시간을 잰다(NFR-PF-02). k6는 스트림을 읽지 못해 따로 만들었다.
 - `sse/sse-vs-polling.py` — `compare`: SSE 연결과 폴링 사용자가 같은 회차 변화를 각각 몇 초 뒤에 아는지 나란히 잰다.
