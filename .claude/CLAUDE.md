@@ -1,7 +1,7 @@
 # YU FESTA 서버 — Claude 작업 지침
 
 영남대 2026 가을 대동제(10/2 하루) 축제 웹 서비스의 API 서버. Spring Boot 4 + MySQL 8.
-요구사항 원문은 `docs/srs.md`(SRS v1.10), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.7)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
+요구사항 원문은 `docs/srs.md`(SRS v1.10), 스키마 원문은 `docs/erd.sql`·`docs/erd.md`(ERD v1.8)다. `docs/`는 저장소에 포함되며 변경은 PR로 리뷰한다.
 이 문서와 원문이 다르면 원문을 따르고 이 문서를 고친다. 원문에 없는 동작은 만들지 않는다.
 
 ## 0. 작업 순서
@@ -352,7 +352,7 @@ denyAll     : anyRequest
 - 운영자 API(`/api/v1/admin/timetable`): 목록·등록·수정·삭제, `/{id}/times`(변경 기록), `/{id}/delay`, `/{id}/live`, `PUT /order`(모든 ID를 한 번씩, 아니면 `TIMETABLE_ORDER_INVALID`). 초기 공연 13건은 V3 마이그레이션이 넣고 이후 변경은 이 API로.
 
 **지도 `place`** (FR-MAP)
-- 카테고리 `STAGE/BOOTH/TOILET/AMENITY/INFO`. 공개 목록은 `is_active = 1`만. 거리 계산은 클라이언트(위치는 서버에 오지 않는다, NFR-SC-06). 화장실 목록 기본 정렬은 이름순.
+- 카테고리 `STAGE/TOILET/DELIVERY_ZONE/BOOTH`(공연장·화장실·배달존·부스/푸드트럭). 공개 목록은 `is_active = 1`만. 거리 계산은 클라이언트(위치는 서버에 오지 않는다, NFR-SC-06). 화장실 목록 기본 정렬은 이름순.
 
 **라인업 `club`**, **공지 `notice`**, **축제 사진 `photo`**
 - 등록·수정은 운영자만. 공개 목록은 `sort_order`, 공지는 최신순. 긴급 배너는 `is_banner = 1` 중 최신 1건.

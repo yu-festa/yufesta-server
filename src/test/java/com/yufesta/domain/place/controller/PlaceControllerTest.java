@@ -56,8 +56,18 @@ class PlaceControllerTest extends ControllerTestSupport {
     }
 
     @Test
-    void 제거된_카테고리로는_장소를_필터링할_수_없다() throws Exception {
+    void 부스_카테고리로_장소를_필터링한다() throws Exception {
+        when(placeService.getPlaces(PlaceCategory.BOOTH))
+                .thenReturn(List.of(placeListResponse(PlaceCategory.BOOTH)));
+
         mockMvc.perform(get("/api/v1/places").param("category", "BOOTH"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].category").value("BOOTH"));
+    }
+
+    @Test
+    void 제거된_카테고리로는_장소를_필터링할_수_없다() throws Exception {
+        mockMvc.perform(get("/api/v1/places").param("category", "AMENITY"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_PARAMETER_TYPE"));
     }

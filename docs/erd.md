@@ -1,6 +1,9 @@
-# YU FESTA ERD 설명서 v1.7
+# YU FESTA ERD 설명서 v1.8
 
 기준: SRS v1.10 · DB: MySQL 8.x · DDL: `docs/erd.sql`
+
+v1.8 변경 요약 (2026-10-01, 부스·푸드트럭 카테고리)
+- **장소 카테고리 추가**: `places.category`에 `BOOTH`(부스·푸드트럭). 커피차·푸드트럭 위치 표시용. 컬럼 길이(VARCHAR(20)) 안이라 마이그레이션 없음
 
 v1.7 변경 요약 (2026-09-28, 소셜 프로필)
 - **본인 프로필 표시**: `users.display_name`을 소셜 로그인 표시 이름으로 사용하고 `profile_image_url`을 추가한다
@@ -121,7 +124,7 @@ v1.2 변경 요약 (2026-09-17, 2차 회의 반영)
 |---|---|---|---|---|
 | id | 장소 ID | BIGINT UNSIGNED | N | PK. `?focus=` 파라미터 값 |
 | name | 장소명 | VARCHAR(50) | N | 핀·시트 제목 |
-| category | 카테고리 | VARCHAR(20) | N | `STAGE`(공연장) / `TOILET`(화장실) / `DELIVERY_ZONE`(배달존) |
+| category | 카테고리 | VARCHAR(20) | N | `STAGE`(공연장) / `TOILET`(화장실) / `DELIVERY_ZONE`(배달존) / `BOOTH`(부스·푸드트럭) |
 | lat | 위도 | DECIMAL(10,7) | N | 카카오맵 좌표. 현장 조사로 수집 |
 | lng | 경도 | DECIMAL(10,7) | N | |
 | description | 설명 | VARCHAR(200) | Y | 바텀시트 본문 |

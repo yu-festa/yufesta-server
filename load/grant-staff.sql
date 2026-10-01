@@ -7,9 +7,10 @@
 -- 목록에 넣는 것만으로는 승격되지 않는다. 그래서 목록 추가와 role 변경을 함께 한다.
 -- 역할은 인증 필터가 최대 60초 기억하고(UserRoleCache) 운영자 경로는 항상 DB를 읽으므로 다시 로그인할 필요가 없다.
 -- OWNER(회차 발표·설정 변경)는 주지 않는다. STAFF는 콘텐츠·신고·타임테이블 운영까지다.
-SET @provider         = 'KAKAO';      -- KAKAO 또는 GOOGLE
-SET @provider_user_id = '바꿀_값';     -- recent-users.sql 결과의 provider_user_id
-SET @account = CONCAT(@provider, ':', @provider_user_id);
+-- CONVERT·COLLATE는 접속 클라이언트의 문자셋·콜레이션이 테이블(utf8mb4_unicode_ci)과 달라도 비교가 되게 한다. 없으면 'Illegal mix of collations'
+SET @provider         = CONVERT('KAKAO' USING utf8mb4) COLLATE utf8mb4_unicode_ci;      -- KAKAO 또는 GOOGLE
+SET @provider_user_id = CONVERT('바꿀_값' USING utf8mb4) COLLATE utf8mb4_unicode_ci;     -- recent-users.sql 결과의 provider_user_id
+SET @account = CONCAT(@provider, ':', @provider_user_id) COLLATE utf8mb4_unicode_ci;
 
 UPDATE app_settings
 SET setting_value = TRIM(BOTH ',' FROM CONCAT(setting_value, ',', @account)), updated_at = NOW()

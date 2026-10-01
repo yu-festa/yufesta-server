@@ -12,6 +12,7 @@
 -- v1.5: 분실물 게시별 댓글·1단계 답글, 글 단위 익명 별칭, 댓글 신고 대상 추가(V6)
 -- v1.6: 분실물 게시글당 이미지 1장과 리사이즈·썸네일 URL 추가(V7)
 -- v1.7: 기존 Web Push V8 이력 보존, 소셜 로그인 표시 이름과 프로필 사진 URL 저장(V9)
+-- v1.8: places.category에 BOOTH(부스·푸드트럭) 추가. 컬럼 길이 안이라 마이그레이션 없음
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -42,7 +43,7 @@ CREATE TABLE `users` (
 CREATE TABLE `places` (
   `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '장소 ID',
   `name`        VARCHAR(50)     NOT NULL COMMENT '장소명',
-  `category`    VARCHAR(20)     NOT NULL COMMENT '카테고리(STAGE/TOILET/DELIVERY_ZONE)',
+  `category`    VARCHAR(20)     NOT NULL COMMENT '카테고리(STAGE/TOILET/DELIVERY_ZONE/BOOTH)',
   `lat`         DECIMAL(10,7)   NOT NULL COMMENT '위도',
   `lng`         DECIMAL(10,7)   NOT NULL COMMENT '경도',
   `description` VARCHAR(200)    NULL     COMMENT '설명',
